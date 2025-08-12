@@ -40,10 +40,12 @@ import { useToast } from "@/hooks/use-toast";
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
+import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
   const [isSyncing, startSyncTransition] = useTransition();
   const { toast } = useToast();
+  const router = useRouter();
 
   const handleSyncEmails = async () => {
     startSyncTransition(async () => {
@@ -59,8 +61,9 @@ export default function SettingsPage() {
           title: "Sync Complete!",
           description: `${result.count} new ticket(s) created from emails.`,
         });
-        // In a real app, we might want to redirect or update a global state
-        // For now, the user can navigate back to the dashboard to see them.
+        if (result.count > 0) {
+            router.push('/');
+        }
       }
     });
   };

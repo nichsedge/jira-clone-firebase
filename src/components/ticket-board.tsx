@@ -80,37 +80,31 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated }: TicketBoar
     const activeId = active.id as string;
     const overId = over.id as string;
   
+    if (activeId === overId) return;
+  
     setTickets((prevTickets) => {
-      const activeTicket = prevTickets.find((t) => t.id === activeId);
-      if (!activeTicket) return prevTickets;
-  
-      let newStatus: TicketStatus | undefined;
-      const overIsColumn = columns.find(c => c === overId);
-      if (overIsColumn) {
-        newStatus = overIsColumn;
-      } else {
-        const overTicket = prevTickets.find(t => t.id === overId);
-        if(overTicket) {
-          newStatus = overTicket.status;
-        }
-      }
-  
-      if (!newStatus) return prevTickets;
-  
-      const activeIndex = prevTickets.findIndex((t) => t.id === activeId);
-      let overIndex: number;
+      const activeTicketIndex = prevTickets.findIndex((t) => t.id === activeId);
+      const overTicketIndex = prevTickets.findIndex((t) => t.id === overId);
   
       let newTickets = [...prevTickets];
-      const [movedTicket] = newTickets.splice(activeIndex, 1);
-      movedTicket.status = newStatus;
+      const activeTicket = newTickets[activeTicketIndex];
   
-      if (overIsColumn) {
-        const columnTickets = newTickets.filter(t => t.status === newStatus);
-        if (columnTickets.length > 0) {
-           const lastTicketInColumn = columnTickets[columnTickets.length-1];
-           overIndex = newTickets.findIndex(t => t.id === lastTicketInColumn.id) + 1;
-        } else {
-            // Find the index of the first ticket of the next column
+      // Dropping on a column
+      if (columns.includes(overId as TicketStatus)) {
+        const newStatus = overId as TicketStatus;
+        if (activeTicket.status !== newStatus) {
+          activeTicket.status = newStatus;
+          // Move to the end of the new column's list of tickets
+          const otherTickets = newTickets.filter(t => t.id !== activeId);
+          const columnTickets = otherTickets.filter(t => t.status === newStatus);
+          const lastTicketInColumn = columnTickets[columnTickets.length - 1];
+          
+          let newIndex;
+          if (lastTicketInColumn) {
+             const lastTicketIndex = newTickets.findIndex(t => t.id === lastTicketInColumn.id);
+             newIndex = lastTicketIndex + 1;
+          } else {
+            // Find first ticket of next column
             const columnIndex = columns.indexOf(newStatus);
             let nextColumnTicketIndex = -1;
             for(let i = columnIndex + 1; i < columns.length; i++) {
@@ -120,20 +114,30 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated }: TicketBoar
                     break;
                 }
             }
-            if (nextColumnTicketIndex !== -1) {
-                overIndex = nextColumnTicketIndex;
+             if (nextColumnTicketIndex !== -1) {
+                newIndex = nextColumnTicketIndex;
             } else {
-                overIndex = newTickets.length;
+                newIndex = newTickets.length;
             }
+          }
+          
+          newTickets = arrayMove(newTickets, activeTicketIndex, newIndex > activeTicketIndex ? newIndex - 1 : newIndex);
         }
-      } else {
-         overIndex = newTickets.findIndex((t) => t.id === overId);
       }
-      
-      newTickets.splice(overIndex, 0, movedTicket);
+      // Dropping on another ticket
+      else if (overTicketIndex !== -1) {
+        const overTicket = newTickets[overTicketIndex];
+        if (activeTicket.status !== overTicket.status) {
+          activeTicket.status = overTicket.status;
+          newTickets = arrayMove(newTickets, activeTicketIndex, overTicketIndex);
+        } else {
+          newTickets = arrayMove(newTickets, activeTicketIndex, overTicketIndex);
+        }
+      }
       return newTickets;
     });
   };
+  
 
   if (!isClient) {
     return null;

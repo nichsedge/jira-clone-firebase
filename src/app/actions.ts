@@ -111,21 +111,19 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
             const title = email.subject!.replace('[TICKET]', '').trim();
             const description = email.text || 'No description provided.';
             
-             try {
-                const result = await createTicketAction({
-                    title,
-                    description,
-                    priority: 'Medium', // Default priority
-                });
-
-                if (result.ticket) {
-                    newTickets.push(result.ticket);
-                } else {
-                    console.warn(`Could not create ticket for email with subject: "${email.subject}" due to: ${result.error}`);
-                }
-            } catch (error) {
-                console.error(`Failed to process email with subject: "${email.subject}"`, error);
-            }
+            const now = new Date();
+            const newTicket: Ticket = {
+              id: `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
+              title,
+              description,
+              status: 'To Do',
+              category: "From Email", // Default category
+              priority: 'Medium', // Default priority
+              createdAt: now,
+              updatedAt: now,
+              reporter: { id: 'USER-EMAIL', name: email.from?.text || 'Email User', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=E' },
+            };
+            newTickets.push(newTicket);
         }
 
         return { tickets: newTickets, count: newTickets.length };
