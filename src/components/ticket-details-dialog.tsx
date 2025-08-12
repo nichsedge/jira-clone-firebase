@@ -5,8 +5,19 @@ import { useState, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { updateTicketAction } from "@/app/actions";
+import { deleteTicketAction, updateTicketAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import {
   Dialog,
   DialogContent,
@@ -39,7 +50,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { type Ticket, type User, type TicketStatus } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
-import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil } from 'lucide-react';
+import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { initialTickets } from "@/data/tickets"; // To get users for assignee dropdown
 
@@ -48,6 +59,7 @@ interface TicketDetailsDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onTicketUpdated: (ticket: Ticket) => void;
+  onTicketDeleted: (ticketId: string) => void;
 }
 
 const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).reduce((acc, user) => {
@@ -68,9 +80,11 @@ const formSchema = z.object({
 });
 
 
-export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpdated }: TicketDetailsDialogProps) {
+export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpdated, onTicketDeleted }: TicketDetailsDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isDeleting, startDeleteTransition] = useTransition();
+
   const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -118,6 +132,28 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     });
   }
 
+  function handleDelete() {
+    if (!ticket) return;
+    
+    startDeleteTransition(async () => {
+      const result = await deleteTicketAction({ id: ticket.id });
+      if (result.error) {
+        toast({
+          variant: "destructive",
+          title: "Uh oh! Something went wrong.",
+          description: result.error,
+        });
+      } else if (result.id) {
+        toast({
+          title: "Success!",
+          description: "Ticket has been deleted.",
+        });
+        onTicketDeleted(result.id);
+        onOpenChange(false);
+      }
+    });
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         if(!open) setIsEditing(false);
@@ -133,10 +169,36 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
         </DialogHeader>
 
         {!isEditing && (
-            <Button variant="outline" size="icon" onClick={() => setIsEditing(true)} className="absolute top-6 right-16">
-                <Pencil className="w-4 h-4" />
-                <span className="sr-only">Edit Ticket</span>
-            </Button>
+            <div className="absolute top-6 right-16 flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => setIsEditing(true)}>
+                    <Pencil className="w-4 h-4" />
+                    <span className="sr-only">Edit Ticket</span>
+                </Button>
+                 <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                         <Button variant="destructive" size="icon">
+                            <Trash2 className="w-4 h-4" />
+                            <span className="sr-only">Delete Ticket</span>
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete this
+                            ticket.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+                            {isDeleting ? 'Deleting...' : 'Delete'}
+                        </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+
         )}
 
         {isEditing ? (

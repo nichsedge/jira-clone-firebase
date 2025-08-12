@@ -25,9 +25,10 @@ interface TicketBoardProps {
   tickets: Ticket[];
   setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>;
   onTicketUpdated: (ticket: Ticket) => void;
+  onTicketDeleted: (ticketId: string) => void;
 }
 
-export function TicketBoard({ tickets, setTickets, onTicketUpdated }: TicketBoardProps) {
+export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDeleted }: TicketBoardProps) {
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isClient, setIsClient] = useState(false)
@@ -173,6 +174,7 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated }: TicketBoar
           // Also update the selected ticket to reflect changes immediately
           setSelectedTicket(current => current ? {...current, ...updatedTicket} : null);
         }}
+        onTicketDeleted={onTicketDeleted}
       />
     </DndContext>
   );

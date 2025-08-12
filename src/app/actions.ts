@@ -32,6 +32,10 @@ const updateTicketSchema = z.object({
   category: z.string().optional(),
 });
 
+const deleteTicketSchema = z.object({
+  id: z.string(),
+});
+
 
 export async function createTicketAction(values: z.infer<typeof createTicketSchema>): Promise<{ ticket?: Ticket, error?: string }> {
   const validatedFields = createTicketSchema.safeParse(values);
@@ -95,6 +99,20 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
   return { ticket: { ...updatedTicketData, createdAt: new Date(), updatedAt: new Date(), reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' } } as Ticket };
 
 }
+
+export async function deleteTicketAction(values: z.infer<typeof deleteTicketSchema>): Promise<{ id?: string, error?: string }> {
+    const validatedFields = deleteTicketSchema.safeParse(values);
+
+    if (!validatedFields.success) {
+        return {
+            error: "Invalid fields.",
+        };
+    }
+
+    // In a real app, you would delete from the database here.
+    return { id: validatedFields.data.id };
+}
+
 
 export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: string, count: number }> {
     try {

@@ -72,6 +72,11 @@ export default function Dashboard() {
     setTickets((prevTickets) => prevTickets.map(ticket => ticket.id === updatedTicket.id ? { ...ticket, ...updatedTicket} : ticket));
   }
 
+  const handleTicketDeleted = (deletedTicketId: string) => {
+    setTickets((prevTickets) => prevTickets.filter(ticket => ticket.id !== deletedTicketId));
+  };
+
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -147,7 +152,7 @@ export default function Dashboard() {
           <div className="flex items-center">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
           </div>
-          {isClient && <TicketBoard tickets={tickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} />}
+          {isClient && <TicketBoard tickets={tickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} onTicketDeleted={handleTicketDeleted} />}
         </main>
       </SidebarInset>
     </SidebarProvider>
