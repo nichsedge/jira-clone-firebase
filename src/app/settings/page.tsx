@@ -1,6 +1,6 @@
+
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Home,
@@ -9,6 +9,7 @@ import {
   Settings,
   Search,
   Mail,
+  ChevronLeft,
 } from "lucide-react";
 
 import {
@@ -24,35 +25,29 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
-import { type Ticket } from "@/lib/types";
-import { initialTickets } from "@/data/tickets";
-import { TicketBoard } from "@/components/ticket-board";
-import { CreateTicketDialog } from "@/components/create-ticket-dialog";
+import { Input } from "@/components/ui/input";
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 
-export default function Dashboard() {
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
-  const [isClient, setIsClient] = useState(false)
+export default function SettingsPage() {
 
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
-  const handleTicketCreated = (newTicket: Ticket) => {
-    setTickets((prevTickets) => [newTicket, ...prevTickets]);
+  const handleSyncEmails = async () => {
+    alert("Syncing emails...");
   };
-  
-  const handleTicketUpdated = (updatedTicket: Ticket) => {
-    setTickets((prevTickets) => prevTickets.map(ticket => ticket.id === updatedTicket.id ? { ...ticket, ...updatedTicket} : ticket));
-  }
 
   return (
     <SidebarProvider>
-      <Sidebar>
+       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
             <Logo />
@@ -62,7 +57,7 @@ export default function Dashboard() {
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive>
+              <SidebarMenuButton asChild>
                 <Link href="/">
                   <Home />
                   Dashboard
@@ -90,7 +85,7 @@ export default function Dashboard() {
         <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
+              <SidebarMenuButton asChild isActive>
                 <Link href="/settings">
                   <Settings />
                   Settings
@@ -104,28 +99,43 @@ export default function Dashboard() {
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
           <SidebarTrigger className="md:hidden" />
           <div className="w-full flex-1">
-            <form>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search tickets..."
-                  className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
-                />
-              </div>
-            </form>
+             <Link
+              href="/"
+              className="flex items-center gap-2 text-lg font-semibold"
+            >
+              <Button variant="outline" size="icon" className="h-8 w-8">
+                <ChevronLeft className="h-4 w-4" />
+                <span className="sr-only">Back</span>
+              </Button>
+              <span className="font-semibold text-lg">Settings</span>
+            </Link>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
-            <CreateTicketDialog onTicketCreated={handleTicketCreated} />
             <ThemeToggle />
             <UserNav />
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-          <div className="flex items-center">
-            <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
-          </div>
-          {isClient && <TicketBoard tickets={tickets} onTicketUpdated={handleTicketUpdated} />}
+          <Card>
+              <CardHeader>
+                <CardTitle>Email Integration</CardTitle>
+                <CardDescription>
+                  Connect your support inbox to automatically create tickets from emails.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center space-x-4">
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">sim.adams71@ethereal.email</p>
+                    <p className="text-sm text-muted-foreground">Connected via IMAP</p>
+                  </div>
+                  <Button onClick={handleSyncEmails}>
+                    <Mail className="mr-2 h-4 w-4" />
+                    Sync Emails
+                  </Button>
+                </div>
+              </CardContent>
+          </Card>
         </main>
       </SidebarInset>
     </SidebarProvider>
