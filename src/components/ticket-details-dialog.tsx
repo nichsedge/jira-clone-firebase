@@ -261,9 +261,9 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                         variant="outline"
                         className={cn(
                             "capitalize",
-                            ticket.priority === "High" && "border-destructive/80 text-destructive",
-                            ticket.priority === "Medium" && "border-yellow-500/80 text-yellow-500",
-                            ticket.priority === "Low" && "border-green-500/80 text-green-500"
+                            ticket.priority === "High" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
+                            ticket.priority === "Medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
+                            ticket.priority === "Low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
                         )}
                         >
                         {ticket.priority}

@@ -99,10 +99,11 @@ export function TicketCard({ ticket, onClick, isOverlay }: TicketCardProps) {
               className={cn(
                 "capitalize",
                 ticket.priority === "High" &&
-                  "border-destructive/80 text-destructive",
+                  "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
                 ticket.priority === "Medium" &&
-                  "border-chart-4/80 text-chart-4",
-                ticket.priority === "Low" && "border-chart-2/80 text-chart-2"
+                  "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
+                ticket.priority === "Low" && 
+                  "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
               )}
             >
               {ticket.priority}
