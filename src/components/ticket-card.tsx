@@ -31,63 +31,62 @@ export function TicketCard({ ticket }: TicketCardProps) {
   };
 
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "hover:bg-muted/50 transition-colors relative",
-        isDragging && "opacity-50"
-      )}
-      {...attributes}
-    >
-      <button
-        {...listeners}
-        className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-grab"
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <Card
+        className={cn(
+          "hover:bg-muted/50 transition-colors relative",
+          isDragging && "opacity-50"
+        )}
       >
-        <GripVertical className="h-5 w-5" />
-      </button>
-      <CardHeader className="p-4 pl-8 pb-2">
-        <CardTitle className="text-base font-medium">{ticket.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="p-4 pl-8 pt-2">
-        <div className="flex space-x-2 text-sm text-muted-foreground mb-4">
-          <div className="font-medium">{ticket.id}</div>
-          <div>•</div>
-          <div>
-            {formatDistanceToNow(new Date(ticket.createdAt), {
-              addSuffix: true,
-            })}
+        <button
+          {...listeners}
+          className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-grab"
+        >
+          <GripVertical className="h-5 w-5" />
+        </button>
+        <CardHeader className="p-4 pl-8 pb-2">
+          <CardTitle className="text-base font-medium">{ticket.title}</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pl-8 pt-2">
+          <div className="flex space-x-2 text-sm text-muted-foreground mb-4">
+            <div className="font-medium">{ticket.id}</div>
+            <div>•</div>
+            <div>
+              {formatDistanceToNow(new Date(ticket.createdAt), {
+                addSuffix: true,
+              })}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Avatar className="h-6 w-6">
-              <AvatarImage
-                src={`https://placehold.co/32x32.png`}
-                data-ai-hint="person avatar"
-                alt="User avatar"
-              />
-              <AvatarFallback>U</AvatarFallback>
-            </Avatar>
-            {ticket.category && (
-              <Badge variant="secondary">{ticket.category}</Badge>
-            )}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Avatar className="h-6 w-6">
+                <AvatarImage
+                  src={`https://placehold.co/32x32.png`}
+                  data-ai-hint="person avatar"
+                  alt="User avatar"
+                />
+                <AvatarFallback>U</AvatarFallback>
+              </Avatar>
+              {ticket.category && (
+                <Badge variant="secondary">{ticket.category}</Badge>
+              )}
+            </div>
+            <Badge
+              variant="outline"
+              className={cn(
+                "capitalize",
+                ticket.priority === "High" &&
+                  "border-destructive/80 text-destructive",
+                ticket.priority === "Medium" &&
+                  "border-chart-4/80 text-chart-4",
+                ticket.priority === "Low" && "border-chart-2/80 text-chart-2"
+              )}
+            >
+              {ticket.priority}
+            </Badge>
           </div>
-          <Badge
-            variant="outline"
-            className={cn(
-              "capitalize",
-              ticket.priority === "High" &&
-                "border-destructive/80 text-destructive",
-              ticket.priority === "Medium" &&
-                "border-chart-4/80 text-chart-4",
-              ticket.priority === "Low" && "border-chart-2/80 text-chart-2"
-            )}
-          >
-            {ticket.priority}
-          </Badge>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
