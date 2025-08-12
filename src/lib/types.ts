@@ -14,6 +14,13 @@ export type Project = {
   description?: string;
 };
 
+export type Comment = {
+  id: string;
+  text: string;
+  author: User;
+  createdAt: Date;
+}
+
 export type Ticket = {
   id: string;
   title: string;
@@ -26,4 +33,5 @@ export type Ticket = {
   assignee?: User;
   reporter: User;
   projectId: string;
+  comments?: Comment[];
 };

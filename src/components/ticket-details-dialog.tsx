@@ -48,9 +48,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { type Ticket, type User, type TicketStatus } from "@/lib/types";
+import { type Ticket, type User, type TicketStatus, type Comment } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
-import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2, FolderKanban } from 'lucide-react';
+import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2, FolderKanban, MessageSquare } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { initialTickets, initialProjects } from "@/data/tickets"; // To get users for assignee dropdown
 
@@ -80,16 +80,26 @@ const formSchema = z.object({
   projectId: z.string().min(1, { message: "Project is required." }),
 });
 
+const commentSchema = z.object({
+  text: z.string().min(1, { message: "Comment cannot be empty." }),
+});
+
 
 export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpdated, onTicketDeleted }: TicketDetailsDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
-
   const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+  });
+
+  const commentForm = useForm<z.infer<typeof commentSchema>>({
+    resolver: zodResolver(commentSchema),
+    defaultValues: {
+      text: "",
+    },
   });
 
   useEffect(() => {
@@ -112,6 +122,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
 
   const assignee = allUsers.find(u => u.id === ticket.assignee?.id);
   const project = initialProjects.find(p => p.id === ticket.projectId);
+  const currentUser = allUsers[0]; // Dummy current user for comments
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (!ticket) return;
@@ -129,13 +140,15 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
           title: "Success!",
           description: "Ticket has been updated.",
         });
-        onTicketUpdated(result.ticket);
+        // We are faking the comment update locally
+        const updatedTicket = {...result.ticket, comments: ticket?.comments ?? [] }
+        onTicketUpdated(updatedTicket);
         setIsEditing(false);
       }
     });
   }
 
-  function handleDelete() {
+  function onDelete() {
     if (!ticket) return;
     
     startDeleteTransition(async () => {
@@ -157,12 +170,34 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     });
   }
 
+  function onCommentSubmit(values: z.infer<typeof commentSchema>) {
+    if (!ticket) return;
+    
+    const newComment: Comment = {
+      id: `COMMENT-${Math.floor(1000 + Math.random() * 9000)}`,
+      text: values.text,
+      author: currentUser,
+      createdAt: new Date(),
+    };
+    
+    const updatedTicket = {
+      ...ticket,
+      comments: [...(ticket.comments || []), newComment],
+      updatedAt: new Date(),
+    };
+    
+    // In a real app, this would be an API call
+    onTicketUpdated(updatedTicket);
+    commentForm.reset();
+  }
+
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
         if(!open) setIsEditing(false);
         onOpenChange(open);
     }}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center justify-between pr-12">
             {isEditing ? `Editing: ${ticket.title}` : ticket.title}
@@ -194,7 +229,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+                        <AlertDialogAction onClick={onDelete} disabled={isDeleting}>
                             {isDeleting ? 'Deleting...' : 'Delete'}
                         </AlertDialogAction>
                         </AlertDialogFooter>
@@ -348,76 +383,123 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
             </form>
             </Form>
         ) : (
-            <div className="overflow-y-auto pr-6 -mr-6 grid md:grid-cols-3 gap-6">
+            <div className="overflow-y-auto pr-6 -mr-6 grid md:grid-cols-3 gap-x-8 gap-y-4">
                 <div className="md:col-span-2 space-y-6">
                     <div>
-                        <h3 className="font-semibold mb-2 text-lg">Description</h3>
+                        <h3 className="font-semibold mb-2 text-base">Description</h3>
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
                     </div>
+                     <Separator />
+                    <div className="space-y-4">
+                       <h3 className="font-semibold mb-2 text-base flex items-center gap-2"><MessageSquare className="w-5 h-5"/> Activity</h3>
+                        <Form {...commentForm}>
+                          <form onSubmit={commentForm.handleSubmit(onCommentSubmit)} className="flex items-start gap-3">
+                              <Avatar className="h-8 w-8 mt-1">
+                                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} data-ai-hint="person avatar" />
+                                <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <FormField
+                                  control={commentForm.control}
+                                  name="text"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormControl>
+                                        <Textarea placeholder="Add a comment..." {...field} className="min-h-[60px]" />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                 <Button type="submit" size="sm" className="mt-2" disabled={!commentForm.formState.isValid}>Comment</Button>
+                              </div>
+                          </form>
+                        </Form>
+
+                        <div className="space-y-4">
+                          {ticket.comments?.slice().reverse().map(comment => (
+                            <div key={comment.id} className="flex items-start gap-3">
+                               <Avatar className="h-8 w-8 mt-1">
+                                <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} data-ai-hint="person avatar" />
+                                <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-sm">{comment.author.name}</span>
+                                  <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground">{comment.text}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                    </div>
+
                 </div>
-                <div className="space-y-6 border-l -ml-3 pl-6">
-                    <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><Milestone className="w-4 h-4"/> Status</h4>
-                        <Badge variant="secondary">{ticket.status}</Badge>
-                    </div>
-                     <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><FolderKanban className="w-4 h-4"/> Project</h4>
-                        <Badge variant="secondary">{project?.name}</Badge>
-                    </div>
-                    <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><ArrowUp className="w-4 h-4"/> Priority</h4>
-                        <Badge
-                        variant="outline"
-                        className={cn(
-                            "capitalize",
-                            ticket.priority === "High" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
-                            ticket.priority === "Medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
-                            ticket.priority === "Low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
-                        )}
-                        >
-                        {ticket.priority}
-                        </Badge>
-                    </div>
-                    {ticket.category && (
+                <div className="space-y-6">
+                     <div className="rounded-lg border bg-muted/50 p-4 space-y-4">
                         <div className="space-y-2">
-                            <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><Tag className="w-4 h-4"/> Category</h4>
-                            <Badge variant="secondary">{ticket.category}</Badge>
+                            <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><Milestone className="w-4 h-4"/> Status</h4>
+                            <Badge variant="secondary">{ticket.status}</Badge>
                         </div>
-                    )}
-                    <Separator />
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <UserIcon className="w-5 h-5 text-muted-foreground"/>
-                            <span className="font-semibold text-muted-foreground text-sm">Assignee</span>
+                        <div className="space-y-2">
+                            <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><FolderKanban className="w-4 h-4"/> Project</h4>
+                            <Badge variant="secondary">{project?.name}</Badge>
                         </div>
-                        <div className="flex items-center gap-2 pl-2">
-                            {assignee ? (
-                                <>
-                                    <Avatar className="h-7 w-7">
-                                        <AvatarImage src={assignee.avatarUrl} alt={assignee.name} data-ai-hint="person avatar"/>
-                                        <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <span className="text-sm">{assignee.name}</span>
-                                </>
-                            ) : (
-                                <span className="text-sm text-muted-foreground pl-7">Unassigned</span>
+                        <div className="space-y-2">
+                            <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><ArrowUp className="w-4 h-4"/> Priority</h4>
+                            <Badge
+                            variant="outline"
+                            className={cn(
+                                "capitalize",
+                                ticket.priority === "High" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
+                                ticket.priority === "Medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
+                                ticket.priority === "Low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
                             )}
+                            >
+                            {ticket.priority}
+                            </Badge>
+                        </div>
+                        {ticket.category && (
+                            <div className="space-y-2">
+                                <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><Tag className="w-4 h-4"/> Category</h4>
+                                <Badge variant="secondary">{ticket.category}</Badge>
+                            </div>
+                        )}
+                        <Separator />
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <UserIcon className="w-5 h-5 text-muted-foreground"/>
+                                <span className="font-semibold text-muted-foreground text-sm">Assignee</span>
+                            </div>
+                            <div className="flex items-center gap-2 pl-2">
+                                {assignee ? (
+                                    <>
+                                        <Avatar className="h-7 w-7">
+                                            <AvatarImage src={assignee.avatarUrl} alt={assignee.name} data-ai-hint="person avatar"/>
+                                            <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <span className="text-sm">{assignee.name}</span>
+                                    </>
+                                ) : (
+                                    <span className="text-sm text-muted-foreground pl-7">Unassigned</span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <UserIcon className="w-5 h-5 text-muted-foreground"/>
+                                <span className="font-semibold text-muted-foreground text-sm">Reporter</span>
+                            </div>
+                            <div className="flex items-center gap-2 pl-2">
+                                <Avatar className="h-7 w-7">
+                                    <AvatarImage src={ticket.reporter.avatarUrl} alt={ticket.reporter.name} data-ai-hint="person avatar" />
+                                    <AvatarFallback>{ticket.reporter.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">{ticket.reporter.name}</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="space-y-4">
-                         <div className="flex items-center gap-2">
-                            <UserIcon className="w-5 h-5 text-muted-foreground"/>
-                            <span className="font-semibold text-muted-foreground text-sm">Reporter</span>
-                        </div>
-                        <div className="flex items-center gap-2 pl-2">
-                            <Avatar className="h-7 w-7">
-                                <AvatarImage src={ticket.reporter.avatarUrl} alt={ticket.reporter.name} data-ai-hint="person avatar" />
-                                <AvatarFallback>{ticket.reporter.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm">{ticket.reporter.name}</span>
-                        </div>
-                    </div>
-                    <Separator />
                     <div className="space-y-2 text-sm">
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Created</span>

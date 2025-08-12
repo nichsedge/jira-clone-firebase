@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   Home,
@@ -27,7 +27,7 @@ import {
 
 import { Input } from "@/components/ui/input";
 
-import { type Ticket } from "@/lib/types";
+import { type Ticket, type Comment } from "@/lib/types";
 import { initialTickets } from "@/data/tickets";
 import { TicketBoard } from "@/components/ticket-board";
 import { CreateTicketDialog } from "@/components/create-ticket-dialog";
@@ -40,16 +40,17 @@ const TICKETS_STORAGE_KEY = 'proflow-tickets';
 export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isClient, setIsClient] = useState(false)
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     setIsClient(true)
     const storedTickets = localStorage.getItem(TICKETS_STORAGE_KEY);
     if (storedTickets) {
-      // It's important to parse dates back into Date objects
       const parsedTickets = JSON.parse(storedTickets).map((t: any) => ({
         ...t,
         createdAt: new Date(t.createdAt),
         updatedAt: new Date(t.updatedAt),
+        comments: t.comments?.map((c: any) => ({...c, createdAt: new Date(c.createdAt)})) || [],
       }));
       setTickets(parsedTickets);
     } else {
@@ -63,13 +64,23 @@ export default function Dashboard() {
     }
   }, [tickets, isClient]);
 
+  const filteredTickets = useMemo(() => {
+    if (!searchTerm) return tickets;
+    return tickets.filter(
+      (ticket) =>
+        ticket.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ticket.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [tickets, searchTerm]);
+
 
   const handleTicketCreated = (newTicket: Ticket) => {
     setTickets((prevTickets) => [newTicket, ...prevTickets]);
   };
   
   const handleTicketUpdated = (updatedTicket: Ticket) => {
-    setTickets((prevTickets) => prevTickets.map(ticket => ticket.id === updatedTicket.id ? { ...ticket, ...updatedTicket} : ticket));
+     setTickets((prevTickets) => prevTickets.map(ticket => ticket.id === updatedTicket.id ? { ...ticket, ...updatedTicket} : ticket));
   }
 
   const handleTicketDeleted = (deletedTicketId: string) => {
@@ -146,6 +157,8 @@ export default function Dashboard() {
                   type="search"
                   placeholder="Search tickets..."
                   className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </form>
@@ -160,7 +173,7 @@ export default function Dashboard() {
           <div className="flex items-center">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
           </div>
-          {isClient && <TicketBoard tickets={tickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} onTicketDeleted={handleTicketDeleted} />}
+          {isClient && <TicketBoard tickets={filteredTickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} onTicketDeleted={handleTicketDeleted} />}
         </main>
       </SidebarInset>
     </SidebarProvider>
