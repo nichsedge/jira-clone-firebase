@@ -14,6 +14,7 @@ export type Ticket = {
   category?: string;
   priority: 'Low' | 'Medium' | 'High';
   createdAt: Date;
+  updatedAt: Date;
   assignee?: User;
   reporter: User;
 };

@@ -36,6 +36,7 @@ export async function createTicketAction(values: { title: string, description: s
     
     // In a real app, you would save to a database here.
     // For this example, we're returning the data to be handled client-side.
+    const now = new Date();
     const newTicket: Ticket = {
       id: `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
       title,
@@ -43,7 +44,8 @@ export async function createTicketAction(values: { title: string, description: s
       status: 'To Do',
       category,
       priority: 'Medium',
-      createdAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
       // Dummy data for new fields
       reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' },
     };
@@ -73,6 +75,6 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
   // so we will just return the validated data.
   // In a real app you would fetch the full ticket object from DB and return it.
   
-  return { ticket: { ...updatedTicketData, createdAt: new Date(), reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' } } as Ticket };
+  return { ticket: { ...updatedTicketData, createdAt: new Date(), updatedAt: new Date(), reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' } } as Ticket };
 
 }

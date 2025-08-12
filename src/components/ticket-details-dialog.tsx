@@ -309,8 +309,8 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                             <span>{formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</span>
                         </div>
                         <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Created at</span>
-                            <span>{format(new Date(ticket.createdAt), "MMM d, yyyy")}</span>
+                            <span className="text-muted-foreground">Updated</span>
+                            <span>{formatDistanceToNow(new Date(ticket.updatedAt), { addSuffix: true })}</span>
                         </div>
                     </div>
                 </div>
