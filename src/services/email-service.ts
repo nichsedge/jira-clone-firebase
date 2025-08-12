@@ -21,6 +21,24 @@ export async function fetchUnreadEmails(): Promise<ParsedMail[]> {
     return new Promise((resolve, reject) => {
         const imap = new Imap(imapConfig);
         const emails: ParsedMail[] = [];
+        let completed = 0;
+        let totalMessages = 0;
+
+        const processMessage = (msg: Imap.ImapMessage): Promise<ParsedMail> => {
+            return new Promise((resolveMessage, rejectMessage) => {
+                let buffer = '';
+                msg.on('body', (stream) => {
+                    stream.on('data', (chunk) => {
+                        buffer += chunk.toString('utf8');
+                    });
+                });
+                msg.once('end', () => {
+                   simpleParser(buffer)
+                    .then(resolveMessage)
+                    .catch(rejectMessage);
+                });
+            });
+        };
 
         imap.once('ready', () => {
             imap.openBox('INBOX', true, (err, box) => {
@@ -35,7 +53,8 @@ export async function fetchUnreadEmails(): Promise<ParsedMail[]> {
                         return reject(err);
                     }
 
-                    if (results.length === 0) {
+                    totalMessages = results.length;
+                    if (totalMessages === 0) {
                         imap.end();
                         return resolve([]);
                     }
@@ -43,36 +62,28 @@ export async function fetchUnreadEmails(): Promise<ParsedMail[]> {
                     const f = imap.fetch(results, { bodies: '' });
                     
                     f.on('message', (msg, seqno) => {
-                        const parserPromise = new Promise<ParsedMail>((resolveMessage, rejectMessage) => {
-                            const parser = simpleParser(source => {
-                                // simpleParser will resolve the promise with the parsed mail object
-                            });
-    
-                            parser.on('end', (mail) => {
-                                resolveMessage(mail);
-                            });
-    
-                            parser.on('error', (err) => {
-                                rejectMessage(err);
-                            });
-    
-                            msg.on('body', (stream, info) => {
-                                stream.pipe(parser);
-                            });
-                        });
-                        
-                        parserPromise.then(parsedMail => {
+                        processMessage(msg).then(parsedMail => {
                             emails.push(parsedMail);
-                        }).catch(reject);
+                            completed++;
+                            if (completed === totalMessages) {
+                                imap.end();
+                            }
+                        }).catch(err => {
+                            console.error('Error parsing email:', err);
+                            completed++;
+                             if (completed === totalMessages) {
+                                imap.end();
+                            }
+                        });
                     });
 
                     f.once('error', (err) => {
+                        console.error('Fetch error:', err);
                         reject(err);
                     });
 
                     f.once('end', () => {
-                        imap.end();
-                        resolve(emails);
+                        // All messages have been fetched
                     });
                 });
             });
@@ -83,7 +94,7 @@ export async function fetchUnreadEmails(): Promise<ParsedMail[]> {
         });
 
         imap.once('end', () => {
-            // Connection ended
+           resolve(emails);
         });
 
         imap.connect();
