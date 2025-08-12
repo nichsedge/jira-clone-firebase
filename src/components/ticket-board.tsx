@@ -6,7 +6,6 @@ import {
   DndContext,
   closestCorners,
   type DragEndEvent,
-  type Announcer,
   PointerSensor,
   useSensor,
   useSensors,
@@ -22,25 +21,12 @@ interface TicketBoardProps {
   setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>;
 }
 
-const customAnnouncements: Announcer = {
-  onDragStart({ active }) {
-    return `Picked up draggable item ${active.id}.`;
-  },
-  onDragOver({ active, over }) {
-    if (over) {
-      return `Draggable item ${active.id} was moved over droppable area ${over.id}.`;
-    }
-    return `Draggable item ${active.id} is no longer over a droppable area.`;
-  },
-  onDragEnd({ active, over }) {
-    if (over) {
-      return `Draggable item ${active.id} was dropped over droppable area ${over.id}.`;
-    }
-    return `Draggable item ${active.id} was dropped.`;
-  },
-  onDragCancel({ active }) {
-    return `Dragging was cancelled. Draggable item ${active.id} was dropped.`;
-  },
+const screenReaderInstructions = {
+  draggable: `
+    To pick up a ticket, press the space bar.
+    While dragging, use the arrow keys to move the ticket.
+    Press space again to drop the ticket in its new position, or press escape to cancel.
+  `,
 };
 
 export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
@@ -111,7 +97,7 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragEnd={handleDragEnd}
-      announcements={customAnnouncements}
+      screenReaderInstructions={screenReaderInstructions}
     >
       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         {columns.map((status) => (
