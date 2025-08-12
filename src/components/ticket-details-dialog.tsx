@@ -211,29 +211,44 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                     )}
                     />
                 </div>
-                 <FormField
-                control={form.control}
-                name="assigneeId"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Assignee</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                 <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                    control={form.control}
+                    name="assigneeId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Assignee</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select an assignee" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {allUsers.map(user => (
+                                <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField
+                    control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Category</FormLabel>
                         <FormControl>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select an assignee" />
-                        </SelectTrigger>
+                            <Input placeholder="e.g. UI/UX" {...field} />
                         </FormControl>
-                        <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {allUsers.map(user => (
-                            <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </div>
                 <DialogFooter>
                     <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
                     <Button type="submit" disabled={isPending}>
@@ -320,3 +335,5 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     </Dialog>
   );
 }
+
+    
