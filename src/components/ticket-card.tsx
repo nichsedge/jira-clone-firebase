@@ -69,14 +69,20 @@ export function TicketCard({ ticket }: TicketCardProps) {
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Avatar className="h-6 w-6">
-                <AvatarImage
-                  src={`https://placehold.co/32x32.png`}
-                  data-ai-hint="person avatar"
-                  alt="User avatar"
-                />
-                <AvatarFallback>U</AvatarFallback>
-              </Avatar>
+               {ticket.assignee ? (
+                <Avatar className="h-6 w-6">
+                  <AvatarImage
+                    src={ticket.assignee.avatarUrl}
+                    data-ai-hint="person avatar"
+                    alt={ticket.assignee.name}
+                  />
+                  <AvatarFallback>{ticket.assignee.name[0]}</AvatarFallback>
+                </Avatar>
+              ) : (
+                 <Avatar className="h-6 w-6">
+                  <AvatarFallback>U</AvatarFallback>
+                </Avatar>
+              )}
               {ticket.category && (
                 <Badge variant="secondary">{ticket.category}</Badge>
               )}

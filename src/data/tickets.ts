@@ -1,4 +1,11 @@
-import { type Ticket } from '@/lib/types';
+import { type Ticket, type User } from '@/lib/types';
+
+const users: User[] = [
+  { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' },
+  { id: 'USER-2', name: 'Bob Williams', avatarUrl: 'https://placehold.co/32x32/D1FAE5/065F46/png?text=B' },
+  { id: 'USER-3', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/32x32/FEF3C7/92400E/png?text=C' },
+  { id: 'USER-4', name: 'Diana Miller', avatarUrl: 'https://placehold.co/32x32/FEE2E2/991B1B/png?text=D' },
+];
 
 export const initialTickets: Ticket[] = [
   {
@@ -9,6 +16,8 @@ export const initialTickets: Ticket[] = [
     category: 'UI/UX',
     priority: 'High',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 1)),
+    assignee: users[0],
+    reporter: users[1],
   },
   {
     id: 'TICKET-5214',
@@ -18,6 +27,8 @@ export const initialTickets: Ticket[] = [
     category: 'Backend',
     priority: 'High',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 3)),
+    assignee: users[2],
+    reporter: users[3],
   },
   {
     id: 'TICKET-9632',
@@ -27,6 +38,7 @@ export const initialTickets: Ticket[] = [
     category: 'Documentation',
     priority: 'Medium',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 2)),
+    reporter: users[0],
   },
   {
     id: 'TICKET-1478',
@@ -36,6 +48,8 @@ export const initialTickets: Ticket[] = [
     category: 'Content',
     priority: 'Low',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 5)),
+    assignee: users[1],
+    reporter: users[2],
   },
   {
     id: 'TICKET-6543',
@@ -45,6 +59,8 @@ export const initialTickets: Ticket[] = [
     category: 'UI/UX',
     priority: 'Medium',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 7)),
+    assignee: users[3],
+    reporter: users[0],
   },
   {
     id: 'TICKET-3298',
@@ -54,5 +70,7 @@ export const initialTickets: Ticket[] = [
     category: 'Backend',
     priority: 'High',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 10)),
+    assignee: users[0],
+    reporter: users[3],
   },
 ];

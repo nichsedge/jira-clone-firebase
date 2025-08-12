@@ -33,6 +33,8 @@ export async function createTicketAction(values: { title: string, description: s
       category,
       priority: 'Medium',
       createdAt: new Date(),
+      // Dummy data for new fields
+      reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' },
     };
 
     return { ticket: newTicket };
