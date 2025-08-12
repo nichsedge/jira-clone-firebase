@@ -29,7 +29,7 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
       Done: [],
     };
     for (const ticket of tickets) {
-      if(ticket.status) {
+      if (ticket.status && grouped[ticket.status]) {
         grouped[ticket.status].push(ticket);
       }
     }
