@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -34,22 +35,39 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 
+const TICKETS_STORAGE_KEY = 'proflow-tickets';
+
 export default function Dashboard() {
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isClient, setIsClient] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
+    const storedTickets = localStorage.getItem(TICKETS_STORAGE_KEY);
+    if (storedTickets) {
+      // It's important to parse dates back into Date objects
+      const parsedTickets = JSON.parse(storedTickets).map((t: any) => ({
+        ...t,
+        createdAt: new Date(t.createdAt),
+        updatedAt: new Date(t.updatedAt),
+      }));
+      setTickets(parsedTickets);
+    } else {
+      setTickets(initialTickets);
+    }
   }, [])
+
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+    }
+  }, [tickets, isClient]);
+
 
   const handleTicketCreated = (newTicket: Ticket) => {
     setTickets((prevTickets) => [newTicket, ...prevTickets]);
   };
   
-  const handleTicketsCreated = (newTickets: Ticket[]) => {
-    setTickets((prevTickets) => [...newTickets, ...prevTickets]);
-  };
-
   const handleTicketUpdated = (updatedTicket: Ticket) => {
     setTickets((prevTickets) => prevTickets.map(ticket => ticket.id === updatedTicket.id ? { ...ticket, ...updatedTicket} : ticket));
   }

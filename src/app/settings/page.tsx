@@ -41,6 +41,9 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { useRouter } from "next/navigation";
+import { Ticket } from "@/lib/types";
+
+const TICKETS_STORAGE_KEY = 'proflow-tickets';
 
 export default function SettingsPage() {
   const [isSyncing, startSyncTransition] = useTransition();
@@ -61,7 +64,11 @@ export default function SettingsPage() {
           title: "Sync Complete!",
           description: `${result.count} new ticket(s) created from emails.`,
         });
-        if (result.count > 0) {
+        if (result.count > 0 && result.tickets) {
+            const storedTickets = localStorage.getItem(TICKETS_STORAGE_KEY);
+            const currentTickets = storedTickets ? JSON.parse(storedTickets) : [];
+            const newTickets = [...result.tickets, ...currentTickets];
+            localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(newTickets));
             router.push('/');
         }
       }
