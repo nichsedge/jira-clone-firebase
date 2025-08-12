@@ -1,12 +1,24 @@
+
 'use server';
 
 import { categorizeTicket } from '@/ai/flows/categorize-ticket';
-import { type Ticket } from '@/lib/types';
+import { type Ticket, type TicketPriority, type User } from '@/lib/types';
+import { initialTickets } from '@/data/tickets'; // To get users
 import { z } from 'zod';
+
+const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).reduce((acc, user) => {
+  if (!acc.find(u => u.id === user.id)) {
+    acc.push(user);
+  }
+  return acc;
+}, [] as User[]);
+
 
 const createTicketSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
   description: z.string().min(1, 'Description is required.'),
+  priority: z.enum(['Low', 'Medium', 'High']),
+  assigneeId: z.string().optional(),
 });
 
 const updateTicketSchema = z.object({
@@ -20,7 +32,7 @@ const updateTicketSchema = z.object({
 });
 
 
-export async function createTicketAction(values: { title: string, description: string }): Promise<{ ticket?: Ticket, error?: string }> {
+export async function createTicketAction(values: z.infer<typeof createTicketSchema>): Promise<{ ticket?: Ticket, error?: string }> {
   const validatedFields = createTicketSchema.safeParse(values);
 
   if (!validatedFields.success) {
@@ -29,7 +41,7 @@ export async function createTicketAction(values: { title: string, description: s
     };
   }
   
-  const { title, description } = validatedFields.data;
+  const { title, description, priority, assigneeId } = validatedFields.data;
 
   try {
     const { category } = await categorizeTicket({ title, description });
@@ -43,11 +55,11 @@ export async function createTicketAction(values: { title: string, description: s
       description,
       status: 'To Do',
       category,
-      priority: 'Medium',
+      priority: priority as TicketPriority,
       createdAt: now,
       updatedAt: now,
-      // Dummy data for new fields
-      reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' },
+      assignee: allUsers.find(u => u.id === assigneeId),
+      reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' }, // Dummy reporter
     };
 
     return { ticket: newTicket };
@@ -69,7 +81,11 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
   // In a real app, you would update the database here.
   // For this example, we're just returning the updated data.
   // We won't have the full user objects here, so we'll just return the ID for the assignee.
-  const updatedTicketData = validatedFields.data;
+  const updatedTicketData = {
+    ...validatedFields.data,
+    assignee: allUsers.find(u => u.id === validatedFields.data.assigneeId)
+  };
+
 
   // We are not persisting the full ticket object to keep it simple
   // so we will just return the validated data.

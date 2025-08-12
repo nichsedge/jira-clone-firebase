@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useTransition } from "react"
@@ -24,14 +25,32 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { type Ticket } from "@/lib/types"
+import { type Ticket, type User, type TicketPriority } from "@/lib/types"
 import { PlusCircle } from "lucide-react"
+import { initialTickets } from "@/data/tickets"
+
+const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).reduce((acc, user) => {
+  if (!acc.find(u => u.id === user.id)) {
+    acc.push(user);
+  }
+  return acc;
+}, [] as User[]);
+
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
   description: z.string().min(1, { message: "Description is required." }),
+  priority: z.enum(['Low', 'Medium', 'High']),
+  assigneeId: z.string().optional(),
 })
 
 type CreateTicketDialogProps = {
@@ -47,6 +66,7 @@ export function CreateTicketDialog({ onTicketCreated }: CreateTicketDialogProps)
     defaultValues: {
       title: "",
       description: "",
+      priority: 'Medium',
     },
   })
 
@@ -114,6 +134,51 @@ export function CreateTicketDialog({ onTicketCreated }: CreateTicketDialogProps)
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Priority</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a priority" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {(['Low', 'Medium', 'High'] as TicketPriority[]).map(priority => (
+                        <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="assigneeId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Assignee</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select an assignee" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="unassigned">Unassigned</SelectItem>
+                      {allUsers.map(user => (
+                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

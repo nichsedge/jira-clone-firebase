@@ -1,4 +1,6 @@
+
 export type TicketStatus = 'To Do' | 'In Progress' | 'Done';
+export type TicketPriority = 'Low' | 'Medium' | 'High';
 
 export type User = {
   id: string;
@@ -12,7 +14,7 @@ export type Ticket = {
   description: string;
   status: TicketStatus;
   category?: string;
-  priority: 'Low' | 'Medium' | 'High';
+  priority: TicketPriority;
   createdAt: Date;
   updatedAt: Date;
   assignee?: User;
