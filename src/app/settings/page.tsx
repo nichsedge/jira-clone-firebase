@@ -10,6 +10,7 @@ import {
   Settings,
   Mail,
   ChevronLeft,
+  FolderKanban,
 } from "lucide-react";
 
 import {
@@ -91,6 +92,14 @@ export default function SettingsPage() {
                 <Link href="/">
                   <Home />
                   Dashboard
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+             <SidebarMenuItem>
+              <SidebarMenuButton asChild>
+                <Link href="/projects">
+                  <FolderKanban />
+                  Projects
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

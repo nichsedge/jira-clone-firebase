@@ -50,9 +50,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { type Ticket, type User, type TicketStatus } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
-import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2 } from 'lucide-react';
+import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2, FolderKanban } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { initialTickets } from "@/data/tickets"; // To get users for assignee dropdown
+import { initialTickets, initialProjects } from "@/data/tickets"; // To get users for assignee dropdown
 
 interface TicketDetailsDialogProps {
   ticket: Ticket | null;
@@ -77,6 +77,7 @@ const formSchema = z.object({
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
   category: z.string().optional(),
+  projectId: z.string().min(1, { message: "Project is required." }),
 });
 
 
@@ -100,6 +101,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
         priority: ticket.priority,
         assigneeId: ticket.assignee?.id,
         category: ticket.category,
+        projectId: ticket.projectId,
       });
     }
   }, [ticket, form]);
@@ -109,6 +111,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
   }
 
   const assignee = allUsers.find(u => u.id === ticket.assignee?.id);
+  const project = initialProjects.find(p => p.id === ticket.projectId);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (!ticket) return;
@@ -307,13 +310,35 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                         <FormItem>
                         <FormLabel>Category</FormLabel>
                         <FormControl>
-                            <Input placeholder="e.g. UI/UX" {...field} />
+                            <Input placeholder="e.g. UI/UX" {...field} value={field.value ?? ""} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
                     )}
                     />
                 </div>
+                <FormField
+                  control={form.control}
+                  name="projectId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Project</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a project" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {initialProjects.map(p => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <DialogFooter className="pt-4">
                     <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
                     <Button type="submit" disabled={isPending}>
@@ -334,6 +359,10 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                     <div className="space-y-2">
                         <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><Milestone className="w-4 h-4"/> Status</h4>
                         <Badge variant="secondary">{ticket.status}</Badge>
+                    </div>
+                     <div className="space-y-2">
+                        <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><FolderKanban className="w-4 h-4"/> Project</h4>
+                        <Badge variant="secondary">{project?.name}</Badge>
                     </div>
                     <div className="space-y-2">
                         <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><ArrowUp className="w-4 h-4"/> Priority</h4>

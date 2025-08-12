@@ -1,14 +1,13 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Home,
   Ticket as TicketIcon,
   Users,
   Settings,
-  Search,
+  ChevronLeft,
   FolderKanban,
 } from "lucide-react";
 
@@ -25,61 +24,24 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
-import { type Ticket } from "@/lib/types";
-import { initialTickets } from "@/data/tickets";
-import { TicketBoard } from "@/components/ticket-board";
-import { CreateTicketDialog } from "@/components/create-ticket-dialog";
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
+import { initialProjects } from "@/data/tickets";
 
-const TICKETS_STORAGE_KEY = 'proflow-tickets';
-
-export default function Dashboard() {
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [isClient, setIsClient] = useState(false)
-
-  useEffect(() => {
-    setIsClient(true)
-    const storedTickets = localStorage.getItem(TICKETS_STORAGE_KEY);
-    if (storedTickets) {
-      // It's important to parse dates back into Date objects
-      const parsedTickets = JSON.parse(storedTickets).map((t: any) => ({
-        ...t,
-        createdAt: new Date(t.createdAt),
-        updatedAt: new Date(t.updatedAt),
-      }));
-      setTickets(parsedTickets);
-    } else {
-      setTickets(initialTickets);
-    }
-  }, [])
-
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
-    }
-  }, [tickets, isClient]);
-
-
-  const handleTicketCreated = (newTicket: Ticket) => {
-    setTickets((prevTickets) => [newTicket, ...prevTickets]);
-  };
-  
-  const handleTicketUpdated = (updatedTicket: Ticket) => {
-    setTickets((prevTickets) => prevTickets.map(ticket => ticket.id === updatedTicket.id ? { ...ticket, ...updatedTicket} : ticket));
-  }
-
-  const handleTicketDeleted = (deletedTicketId: string) => {
-    setTickets((prevTickets) => prevTickets.filter(ticket => ticket.id !== deletedTicketId));
-  };
-
-
+export default function ProjectsPage() {
   return (
     <SidebarProvider>
-      <Sidebar>
+       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
             <Logo />
@@ -89,15 +51,15 @@ export default function Dashboard() {
         <SidebarContent>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton asChild isActive>
+              <SidebarMenuButton asChild>
                 <Link href="/">
                   <Home />
                   Dashboard
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-             <SidebarMenuItem>
-              <SidebarMenuButton asChild>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild isActive>
                 <Link href="/projects">
                   <FolderKanban />
                   Projects
@@ -139,28 +101,37 @@ export default function Dashboard() {
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
           <SidebarTrigger className="md:hidden" />
           <div className="w-full flex-1">
-            <form>
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="search"
-                  placeholder="Search tickets..."
-                  className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
-                />
-              </div>
-            </form>
+             <div
+              className="flex items-center gap-2 text-lg font-semibold"
+            >
+              <Button variant="outline" size="icon" className="h-8 w-8 as-child">
+                <Link href="/">
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="sr-only">Back</span>
+                </Link>
+              </Button>
+              <span className="font-semibold text-lg">Projects</span>
+            </div>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
-            <CreateTicketDialog onTicketCreated={handleTicketCreated} />
             <ThemeToggle />
             <UserNav />
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-          <div className="flex items-center">
-            <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {initialProjects.map(project => (
+                <Card key={project.id}>
+                    <CardHeader>
+                        <CardTitle>{project.name}</CardTitle>
+                        <CardDescription>{project.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {/* We can add more project details here later */}
+                    </CardContent>
+                </Card>
+            ))}
           </div>
-          {isClient && <TicketBoard tickets={tickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} onTicketDeleted={handleTicketDeleted} />}
         </main>
       </SidebarInset>
     </SidebarProvider>

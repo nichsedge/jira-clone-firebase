@@ -8,6 +8,12 @@ export type User = {
   avatarUrl: string;
 };
 
+export type Project = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
 export type Ticket = {
   id: string;
   title: string;
@@ -19,4 +25,5 @@ export type Ticket = {
   updatedAt: Date;
   assignee?: User;
   reporter: User;
+  projectId: string;
 };

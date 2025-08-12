@@ -20,6 +20,7 @@ const createTicketSchema = z.object({
   description: z.string().min(1, 'Description is required.'),
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
+  projectId: z.string().min(1, "Project is required."),
 });
 
 const updateTicketSchema = z.object({
@@ -30,6 +31,7 @@ const updateTicketSchema = z.object({
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
   category: z.string().optional(),
+  projectId: z.string().min(1, "Project is required."),
 });
 
 const deleteTicketSchema = z.object({
@@ -46,7 +48,7 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
     };
   }
   
-  const { title, description, priority, assigneeId } = validatedFields.data;
+  const { title, description, priority, assigneeId, projectId } = validatedFields.data;
 
   try {
     const { category } = await categorizeTicket({ title, description });
@@ -65,6 +67,7 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
       updatedAt: now,
       assignee: allUsers.find(u => u.id === assigneeId),
       reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' }, // Dummy reporter
+      projectId,
     };
 
     return { ticket: newTicket };
@@ -116,18 +119,18 @@ export async function deleteTicketAction(values: z.infer<typeof deleteTicketSche
 
 export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: string, count: number }> {
     try {
-        // const emails = await fetchUnreadEmails();
-        // const ticketEmails = emails.filter(email => email.subject?.includes('[TICKET]'));
+        const emails = await fetchUnreadEmails();
+        const ticketEmails = emails.filter(email => email.subject?.includes('[TICKET]'));
 
-        // if (ticketEmails.length === 0) {
-        //     return { tickets: [], count: 0 };
-        // }
+        if (ticketEmails.length === 0) {
+            return { tickets: [], count: 0 };
+        }
 
         const newTickets: Ticket[] = [];
 
-        // for (const email of ticketEmails) {
-            const title = "Test Ticket from Email";
-            const description = "This is a test ticket to check if sync works.";
+        for (const email of ticketEmails) {
+            const title = email.subject?.replace("[TICKET]", "").trim() ?? "New Ticket";
+            const description = email.text ?? "No description provided.";
             
             const now = new Date();
             const newTicket: Ticket = {
@@ -139,10 +142,11 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
               priority: 'Medium', // Default priority
               createdAt: now,
               updatedAt: now,
-              reporter: { id: 'USER-EMAIL', name: 'Email User', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=E' },
+              reporter: { id: 'USER-EMAIL', name: email.from?.text ?? "Email User", avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=E' },
+              projectId: 'PROJ-1', // Default project
             };
             newTickets.push(newTicket);
-        // }
+        }
 
         return { tickets: newTickets, count: newTickets.length };
     } catch (error) {

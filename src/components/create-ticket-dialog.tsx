@@ -36,7 +36,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { type Ticket, type User, type TicketPriority } from "@/lib/types"
 import { PlusCircle } from "lucide-react"
-import { initialTickets } from "@/data/tickets"
+import { initialTickets, initialProjects } from "@/data/tickets"
 
 const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).reduce((acc, user) => {
   if (!acc.find(u => u.id === user.id)) {
@@ -51,6 +51,7 @@ const formSchema = z.object({
   description: z.string().min(1, { message: "Description is required." }),
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
+  projectId: z.string().min(1, { message: "Project is required." }),
 })
 
 type CreateTicketDialogProps = {
@@ -67,6 +68,7 @@ export function CreateTicketDialog({ onTicketCreated }: CreateTicketDialogProps)
       title: "",
       description: "",
       priority: 'Medium',
+      projectId: initialProjects[0]?.id,
     },
   })
 
@@ -117,6 +119,28 @@ export function CreateTicketDialog({ onTicketCreated }: CreateTicketDialogProps)
                   <FormControl>
                     <Input placeholder="e.g. Login button not working" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="projectId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Project</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a project" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {initialProjects.map(project => (
+                        <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

@@ -10,6 +10,7 @@ import { type Ticket } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { GripVertical } from "lucide-react";
+import { initialProjects } from "@/data/tickets";
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -39,6 +40,8 @@ export function TicketCard({ ticket, onClick, isOverlay }: TicketCardProps) {
     }
     onClick?.(ticket);
   };
+
+  const project = initialProjects.find(p => p.id === ticket.projectId);
   
   const Component = (
      <div
@@ -66,10 +69,12 @@ export function TicketCard({ ticket, onClick, isOverlay }: TicketCardProps) {
         </CardHeader>
         <CardContent className="p-4 pl-8 pt-2">
           <div className="flex space-x-2 text-sm text-muted-foreground mb-4">
+            <div className="font-medium">{project?.name}</div>
+            <div>•</div>
             <div className="font-medium">{ticket.id}</div>
             <div>•</div>
             <div>
-              {formatDistanceToNow(new Date(ticket.createdAt), {
+              {formatDistanceToNow(new Date(ticket.updatedAt), {
                 addSuffix: true,
               })}
             </div>
@@ -98,12 +103,9 @@ export function TicketCard({ ticket, onClick, isOverlay }: TicketCardProps) {
               variant="outline"
               className={cn(
                 "capitalize",
-                ticket.priority === "High" &&
-                  "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
-                ticket.priority === "Medium" &&
-                  "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
-                ticket.priority === "Low" && 
-                  "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
+                 ticket.priority === "High" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
+                 ticket.priority === "Medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
+                 ticket.priority === "Low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
               )}
             >
               {ticket.priority}
