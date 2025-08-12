@@ -5,7 +5,7 @@ import { categorizeTicket } from '@/ai/flows/categorize-ticket';
 import { type Ticket, type TicketPriority, type User } from '@/lib/types';
 import { initialTickets } from '@/data/tickets'; // To get users
 import { z } from 'zod';
-import { fetchUnreadEmails, ParsedEmail } from '@/services/email-service';
+import { fetchUnreadEmails, ParsedMail } from '@/services/email-service';
 
 const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).reduce((acc, user) => {
   if (!acc.find(u => u.id === user.id)) {
@@ -111,14 +111,20 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
             const title = email.subject!.replace('[TICKET]', '').trim();
             const description = email.text || 'No description provided.';
             
-            const result = await createTicketAction({
-                title,
-                description,
-                priority: 'Medium', // Default priority
-            });
+             try {
+                const result = await createTicketAction({
+                    title,
+                    description,
+                    priority: 'Medium', // Default priority
+                });
 
-            if (result.ticket) {
-                newTickets.push(result.ticket);
+                if (result.ticket) {
+                    newTickets.push(result.ticket);
+                } else {
+                    console.warn(`Could not create ticket for email with subject: "${email.subject}" due to: ${result.error}`);
+                }
+            } catch (error) {
+                console.error(`Failed to process email with subject: "${email.subject}"`, error);
             }
         }
 
