@@ -1,0 +1,58 @@
+import { type Ticket } from '@/lib/types';
+
+export const initialTickets: Ticket[] = [
+  {
+    id: 'TICKET-8782',
+    title: "UI bug on login page",
+    description: "The login button is misaligned on mobile devices, making it difficult to click.",
+    status: 'To Do',
+    category: 'UI/UX',
+    priority: 'High',
+    createdAt: new Date(new Date().setDate(new Date().getDate() - 1)),
+  },
+  {
+    id: 'TICKET-5214',
+    title: "API endpoint for user data is slow",
+    description: "The /api/users endpoint is taking over 2 seconds to respond, impacting performance.",
+    status: 'In Progress',
+    category: 'Backend',
+    priority: 'High',
+    createdAt: new Date(new Date().setDate(new Date().getDate() - 3)),
+  },
+  {
+    id: 'TICKET-9632',
+    title: "Update documentation for new feature",
+    description: "The documentation for the new email integration feature needs to be written and published.",
+    status: 'To Do',
+    category: 'Documentation',
+    priority: 'Medium',
+    createdAt: new Date(new Date().setDate(new Date().getDate() - 2)),
+  },
+  {
+    id: 'TICKET-1478',
+    title: "Fix typo in email template",
+    description: "There is a typo in the automated email response template for resolved tickets.",
+    status: 'Done',
+    category: 'Content',
+    priority: 'Low',
+    createdAt: new Date(new Date().setDate(new Date().getDate() - 5)),
+  },
+  {
+    id: 'TICKET-6543',
+    title: "Implement dark mode theme",
+    description: "Users have requested a dark mode option for the application to reduce eye strain.",
+    status: 'In Progress',
+    category: 'UI/UX',
+    priority: 'Medium',
+    createdAt: new Date(new Date().setDate(new Date().getDate() - 7)),
+  },
+  {
+    id: 'TICKET-3298',
+    title: "Database migration for performance",
+    description: "Migrate the tickets table to a new schema to improve query performance and scalability.",
+    status: 'Done',
+    category: 'Backend',
+    priority: 'High',
+    createdAt: new Date(new Date().setDate(new Date().getDate() - 10)),
+  },
+];
