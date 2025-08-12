@@ -9,7 +9,6 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  type Announcements,
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
@@ -22,27 +21,6 @@ interface TicketBoardProps {
   tickets: Ticket[];
   setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>;
 }
-
-const screenReaderInstructions: Announcements = {
-  onDragStart({ active }) {
-    return `Picked up draggable item ${active.id}.`;
-  },
-  onDragOver({ active, over }) {
-    if (over && over.id) {
-      return `Draggable item ${active.id} was moved over droppable area ${over.id}.`;
-    }
-    return `Draggable item ${active.id} is no longer over a droppable area.`;
-  },
-  onDragEnd({ active, over }) {
-    if (over && over.id) {
-      return `Draggable item ${active.id} was dropped over droppable area ${over.id}`;
-    }
-    return `Draggable item ${active.id} was dropped.`;
-  },
-  onDragCancel({ active }) {
-    return `Dragging was cancelled. Draggable item ${active.id} was dropped.`;
-  },
-};
 
 export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
   const ticketsByStatus = useMemo(() => {
@@ -71,50 +49,64 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
-    
+
+    if (!over) {
+      return;
+    }
+
     const activeId = active.id;
     const overId = over.id;
 
-    if (activeId === overId) return;
+    if (activeId === overId) {
+      return;
+    }
+    
+    setTickets((currentTickets) => {
+      const activeTicket = currentTickets.find((t) => t.id === activeId);
+      const overTicket = currentTickets.find((t) => t.id === overId);
 
-    const activeTicket = getTicketById(activeId);
-    if (!activeTicket) return;
+      if (!activeTicket) {
+        return currentTickets;
+      }
+      
+      const activeContainer = active.data.current?.sortable.containerId as TicketStatus;
+      const overContainer = over.data.current?.sortable?.containerId || (over.id as TicketStatus);
 
-    const overContainer = over.data.current?.sortable?.containerId || over.id as TicketStatus;
-    const activeContainer = active.data.current?.sortable.containerId as TicketStatus;
-
-    if (activeContainer === overContainer) {
-      // Reordering within the same column
-      setTickets((prevTickets) => {
-        const columnTickets = prevTickets.filter(t => t.status === activeContainer);
+      if (!activeContainer || !overContainer || activeContainer === overContainer) {
+        // Handle reordering within the same column
+        const columnTickets = ticketsByStatus[activeContainer];
         const oldIndex = columnTickets.findIndex((t) => t.id === activeId);
         const newIndex = columnTickets.findIndex((t) => t.id === overId);
-        if (oldIndex === -1 || newIndex === -1) return prevTickets;
-
-        const reorderedColumn = arrayMove(columnTickets, oldIndex, newIndex);
         
-        const otherTickets = prevTickets.filter(t => t.status !== activeContainer);
-        return [...otherTickets, ...reorderedColumn].sort((a,b) => (new Date(b.createdAt)).getTime() - (new Date(a.createdAt).getTime()));
-      });
-    } else {
-      // Moving to a different column
-      const overIsColumn = columns.includes(overId as TicketStatus);
-      const newStatus = overIsColumn ? overId as TicketStatus : over.data.current?.sortable?.containerId as TicketStatus;
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const reorderedColumn = arrayMove(columnTickets, oldIndex, newIndex);
+          const otherTickets = currentTickets.filter(t => t.status !== activeContainer);
+          return [...otherTickets, ...reorderedColumn];
+        }
+        return currentTickets;
+      }
+      
+      // Handle moving to a different column
+      let newTickets = [...currentTickets];
+      const activeIndex = newTickets.findIndex((t) => t.id === activeId);
 
-      if (!newStatus) return;
+      // Update status
+      newTickets[activeIndex] = {
+        ...newTickets[activeIndex],
+        status: overContainer,
+        createdAt: new Date(), // Simulate update time
+      };
 
-      setTickets((prev) => {
-        const activeIndex = prev.findIndex((t) => t.id === activeId);
-        if (activeIndex === -1) return prev;
+      // If dropped on another ticket, insert it there.
+      if (overTicket) {
+        const overIndex = newTickets.findIndex((t) => t.id === overId);
+        const [movedTicket] = newTickets.splice(activeIndex, 1);
+        const adjustedOverIndex = overIndex > activeIndex ? overIndex -1 : overIndex;
+        newTickets.splice(adjustedOverIndex + 1, 0, movedTicket);
+      }
 
-        const updatedTicket = { ...prev[activeIndex], status: newStatus };
-        const newTickets = [...prev];
-        newTickets[activeIndex] = updatedTicket;
-
-        return newTickets;
-      });
-    }
+      return newTickets;
+    });
   };
 
   return (
@@ -122,7 +114,6 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragEnd={handleDragEnd}
-      screenReaderInstructions={screenReaderInstructions}
     >
       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         {columns.map((status) => (
@@ -136,3 +127,5 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
     </DndContext>
   );
 }
+
+  
