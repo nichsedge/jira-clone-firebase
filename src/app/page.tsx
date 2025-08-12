@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Home,
@@ -35,6 +35,11 @@ import { Logo } from "@/components/logo";
 
 export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   const handleTicketCreated = (newTicket: Ticket) => {
     setTickets((prevTickets) => [newTicket, ...prevTickets]);
@@ -115,7 +120,7 @@ export default function Dashboard() {
           <div className="flex items-center">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
           </div>
-          <TicketBoard tickets={tickets} setTickets={setTickets} />
+          {isClient && <TicketBoard tickets={tickets} setTickets={setTickets} />}
         </main>
       </SidebarInset>
     </SidebarProvider>
