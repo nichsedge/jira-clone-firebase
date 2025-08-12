@@ -13,9 +13,10 @@ import { GripVertical } from "lucide-react";
 
 interface TicketCardProps {
   ticket: Ticket;
+  onClick?: (ticket: Ticket) => void;
 }
 
-export function TicketCard({ ticket }: TicketCardProps) {
+export function TicketCard({ ticket, onClick }: TicketCardProps) {
   const {
     attributes,
     listeners,
@@ -30,6 +31,14 @@ export function TicketCard({ ticket }: TicketCardProps) {
     transition,
   };
 
+  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Prevent dialog from opening when clicking the drag handle
+    if ((e.target as HTMLElement).closest('button')?.dataset?.dndKitCore === 'true') {
+      return;
+    }
+    onClick?.(ticket);
+  };
+
   if (isDragging) {
     return (
       <div
@@ -41,7 +50,13 @@ export function TicketCard({ ticket }: TicketCardProps) {
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      onClick={handleCardClick}
+      className={onClick ? "cursor-pointer" : ""}
+    >
       <Card
         className={cn(
           "hover:bg-muted/50 transition-colors relative",
@@ -50,6 +65,7 @@ export function TicketCard({ ticket }: TicketCardProps) {
       >
         <button
           {...listeners}
+          data-dnd-kit-core="true"
           className="absolute left-1 top-1/2 -translate-y-1/2 p-1 text-muted-foreground/50 hover:text-muted-foreground transition-colors cursor-grab"
         >
           <GripVertical className="h-5 w-5" />

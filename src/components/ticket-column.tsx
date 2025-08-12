@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -11,9 +12,10 @@ import { TicketCard } from "./ticket-card";
 interface TicketColumnProps {
   status: TicketStatus;
   tickets: Ticket[];
+  onTicketClick: (ticket: Ticket) => void;
 }
 
-export function TicketColumn({ status, tickets }: TicketColumnProps) {
+export function TicketColumn({ status, tickets, onTicketClick }: TicketColumnProps) {
   const { setNodeRef } = useDroppable({
     id: status,
     data: {
@@ -39,7 +41,7 @@ export function TicketColumn({ status, tickets }: TicketColumnProps) {
           strategy={verticalListSortingStrategy}
         >
           {tickets.map((ticket) => (
-            <TicketCard key={ticket.id} ticket={ticket} />
+            <TicketCard key={ticket.id} ticket={ticket} onClick={onTicketClick}/>
           ))}
         </SortableContext>
       </div>
