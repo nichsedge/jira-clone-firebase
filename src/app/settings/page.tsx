@@ -105,7 +105,7 @@ export default function SettingsPage() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
-                <Link href="#">
+                <Link href="/tickets">
                   <TicketIcon />
                   All Tickets
                 </Link>

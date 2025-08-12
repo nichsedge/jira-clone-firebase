@@ -117,7 +117,7 @@ export default function Dashboard() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
-                <Link href="#">
+                <Link href="/tickets">
                   <TicketIcon />
                   All Tickets
                 </Link>
