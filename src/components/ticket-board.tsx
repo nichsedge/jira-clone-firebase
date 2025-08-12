@@ -45,67 +45,70 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
     })
   );
 
-  const getTicketById = (id: UniqueIdentifier) => tickets.find(t => t.id === id);
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (!over) {
-      return;
-    }
+    if (!over) return;
 
-    const activeId = active.id;
-    const overId = over.id;
+    const activeId = active.id as string;
+    const overId = over.id as string;
 
-    if (activeId === overId) {
-      return;
-    }
-    
-    setTickets((currentTickets) => {
-      const activeTicket = currentTickets.find((t) => t.id === activeId);
-      const overTicket = currentTickets.find((t) => t.id === overId);
+    if (activeId === overId) return;
 
-      if (!activeTicket) {
-        return currentTickets;
-      }
-      
-      const activeContainer = active.data.current?.sortable.containerId as TicketStatus;
-      const overContainer = over.data.current?.sortable?.containerId || (over.id as TicketStatus);
+    const isActiveATicket = active.data.current?.type === "Ticket";
+    const isOverATicket = over.data.current?.type === "Ticket";
+    const isOverAColumn = over.data.current?.type === "Column";
 
-      if (!activeContainer || !overContainer || activeContainer === overContainer) {
-        // Handle reordering within the same column
-        const columnTickets = ticketsByStatus[activeContainer];
-        const oldIndex = columnTickets.findIndex((t) => t.id === activeId);
-        const newIndex = columnTickets.findIndex((t) => t.id === overId);
-        
-        if (oldIndex !== -1 && newIndex !== -1) {
-          const reorderedColumn = arrayMove(columnTickets, oldIndex, newIndex);
-          const otherTickets = currentTickets.filter(t => t.status !== activeContainer);
-          return [...otherTickets, ...reorderedColumn];
+    setTickets((prevTickets) => {
+      let newTickets = [...prevTickets];
+      const activeTicketIndex = newTickets.findIndex((t) => t.id === activeId);
+      if (activeTicketIndex === -1) return prevTickets; // Should not happen
+
+      const activeTicket = { ...newTickets[activeTicketIndex] };
+
+      // Scenario 1: Reordering tickets within the same column
+      if (isActiveATicket && isOverATicket) {
+        const overTicketIndex = newTickets.findIndex((t) => t.id === overId);
+        if (activeTicket.status === newTickets[overTicketIndex].status) {
+          return arrayMove(newTickets, activeTicketIndex, overTicketIndex);
         }
-        return currentTickets;
-      }
-      
-      // Handle moving to a different column
-      let newTickets = [...currentTickets];
-      const activeIndex = newTickets.findIndex((t) => t.id === activeId);
-
-      // Update status
-      newTickets[activeIndex] = {
-        ...newTickets[activeIndex],
-        status: overContainer,
-        createdAt: new Date(), // Simulate update time
-      };
-
-      // If dropped on another ticket, insert it there.
-      if (overTicket) {
-        const overIndex = newTickets.findIndex((t) => t.id === overId);
-        const [movedTicket] = newTickets.splice(activeIndex, 1);
-        const adjustedOverIndex = overIndex > activeIndex ? overIndex -1 : overIndex;
-        newTickets.splice(adjustedOverIndex + 1, 0, movedTicket);
       }
 
-      return newTickets;
+      // Scenario 2: Moving a ticket to a new column
+      let newStatus: TicketStatus;
+      if (isOverAColumn) {
+        // Dropped on a column
+        newStatus = overId as TicketStatus;
+      } else if (isOverATicket) {
+        // Dropped on a ticket in another column
+        const overTicketIndex = newTickets.findIndex((t) => t.id === overId);
+        newStatus = newTickets[overTicketIndex].status;
+      } else {
+        return prevTickets; // Should not happen
+      }
+
+      if (activeTicket.status === newStatus) return prevTickets; // No change if status is the same
+
+      // Update the ticket's status
+      activeTicket.status = newStatus;
+      newTickets[activeTicketIndex] = activeTicket;
+
+      // The drag-and-drop library will visually place the item,
+      // but we need to re-sort our flat array based on the new status
+      // to ensure the data model is consistent.
+      // A simple way is to create new groups and flatten them.
+      const updatedGrouped = newTickets.reduce((acc, ticket) => {
+        if (!acc[ticket.status]) {
+          acc[ticket.status] = [];
+        }
+        acc[ticket.status].push(ticket);
+        return acc;
+      }, {} as Record<TicketStatus, Ticket[]>);
+
+      // Recreate the tickets array based on the column order
+      const finalTickets = columns.flatMap(status => updatedGrouped[status] || []);
+
+      return finalTickets;
     });
   };
 
@@ -127,5 +130,3 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
     </DndContext>
   );
 }
-
-  
