@@ -98,18 +98,18 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
 
 export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: string, count: number }> {
     try {
-        const emails = await fetchUnreadEmails();
-        const ticketEmails = emails.filter(email => email.subject?.includes('[TICKET]'));
+        // const emails = await fetchUnreadEmails();
+        // const ticketEmails = emails.filter(email => email.subject?.includes('[TICKET]'));
 
-        if (ticketEmails.length === 0) {
-            return { tickets: [], count: 0 };
-        }
+        // if (ticketEmails.length === 0) {
+        //     return { tickets: [], count: 0 };
+        // }
 
         const newTickets: Ticket[] = [];
 
-        for (const email of ticketEmails) {
-            const title = email.subject!.replace('[TICKET]', '').trim();
-            const description = email.text || 'No description provided.';
+        // for (const email of ticketEmails) {
+            const title = "Test Ticket from Email";
+            const description = "This is a test ticket to check if sync works.";
             
             const now = new Date();
             const newTicket: Ticket = {
@@ -121,10 +121,10 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
               priority: 'Medium', // Default priority
               createdAt: now,
               updatedAt: now,
-              reporter: { id: 'USER-EMAIL', name: email.from?.text || 'Email User', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=E' },
+              reporter: { id: 'USER-EMAIL', name: 'Email User', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=E' },
             };
             newTickets.push(newTicket);
-        }
+        // }
 
         return { tickets: newTickets, count: newTickets.length };
     } catch (error) {
