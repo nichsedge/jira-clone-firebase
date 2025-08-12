@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -5,8 +6,7 @@ import {
   DndContext,
   closestCorners,
   type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
+  type Announcer,
   PointerSensor,
   useSensor,
   useSensors,
@@ -22,6 +22,27 @@ interface TicketBoardProps {
   setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>;
 }
 
+const customAnnouncements: Announcer = {
+  onDragStart({ active }) {
+    return `Picked up draggable item ${active.id}.`;
+  },
+  onDragOver({ active, over }) {
+    if (over) {
+      return `Draggable item ${active.id} was moved over droppable area ${over.id}.`;
+    }
+    return `Draggable item ${active.id} is no longer over a droppable area.`;
+  },
+  onDragEnd({ active, over }) {
+    if (over) {
+      return `Draggable item ${active.id} was dropped over droppable area ${over.id}.`;
+    }
+    return `Draggable item ${active.id} was dropped.`;
+  },
+  onDragCancel({ active }) {
+    return `Dragging was cancelled. Draggable item ${active.id} was dropped.`;
+  },
+};
+
 export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
   const ticketsByStatus = useMemo(() => {
     const grouped: Record<TicketStatus, Ticket[]> = {
@@ -30,7 +51,9 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
       Done: [],
     };
     for (const ticket of tickets) {
-      grouped[ticket.status].push(ticket);
+      if(ticket.status) {
+        grouped[ticket.status].push(ticket);
+      }
     }
     return grouped;
   }, [tickets]);
@@ -46,27 +69,35 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
-    if (active.id === over.id) return;
+    
+    const activeId = active.id;
+    const overId = over.id;
+
+    if (activeId === overId) return;
 
     const activeContainer = active.data.current?.sortable.containerId;
-    const overContainer = over.data.current?.sortable.containerId || over.id;
+    const overContainer = over.data.current?.sortable?.containerId || over.id;
+
+    if (!activeContainer || !overContainer) {
+      return;
+    }
 
     if (activeContainer === overContainer) {
       // Reordering within the same column
-      const columnTickets = ticketsByStatus[activeContainer as TicketStatus];
-      const oldIndex = columnTickets.findIndex((t) => t.id === active.id);
-      const newIndex = columnTickets.findIndex((t) => t.id === over.id);
-
-      const reordered = arrayMove(columnTickets, oldIndex, newIndex);
-      setTickets((prev) => [
-        ...prev.filter((t) => t.status !== activeContainer),
-        ...reordered,
-      ]);
+      setTickets((prevTickets) => {
+        const columnTickets = prevTickets.filter(t => t.status === activeContainer);
+        const oldIndex = columnTickets.findIndex((t) => t.id === activeId);
+        const newIndex = columnTickets.findIndex((t) => t.id === overId);
+        const reorderedColumn = arrayMove(columnTickets, oldIndex, newIndex);
+        
+        const otherTickets = prevTickets.filter(t => t.status !== activeContainer);
+        return [...otherTickets, ...reorderedColumn];
+      });
     } else {
       // Moving to a different column
       setTickets((prev) => {
         return prev.map((ticket) => {
-          if (ticket.id === active.id) {
+          if (ticket.id === activeId) {
             return { ...ticket, status: overContainer as TicketStatus };
           }
           return ticket;
@@ -80,13 +111,14 @@ export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragEnd={handleDragEnd}
+      announcements={customAnnouncements}
     >
       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         {columns.map((status) => (
           <TicketColumn
             key={status}
             status={status}
-            tickets={ticketsByStatus[status]}
+            tickets={ticketsByStatus[status] || []}
           />
         ))}
       </div>
