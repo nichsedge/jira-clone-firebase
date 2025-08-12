@@ -30,6 +30,16 @@ export function TicketCard({ ticket }: TicketCardProps) {
     transition,
   };
 
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="rounded-lg border bg-card text-card-foreground shadow-sm opacity-50"
+      />
+    );
+  }
+
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
       <Card
