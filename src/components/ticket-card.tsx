@@ -14,9 +14,10 @@ import { GripVertical } from "lucide-react";
 interface TicketCardProps {
   ticket: Ticket;
   onClick?: (ticket: Ticket) => void;
+  isOverlay?: boolean;
 }
 
-export function TicketCard({ ticket, onClick }: TicketCardProps) {
+export function TicketCard({ ticket, onClick, isOverlay }: TicketCardProps) {
   const {
     attributes,
     listeners,
@@ -38,29 +39,19 @@ export function TicketCard({ ticket, onClick }: TicketCardProps) {
     }
     onClick?.(ticket);
   };
-
-  if (isDragging) {
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className="rounded-lg border bg-card text-card-foreground shadow-sm opacity-50"
-      />
-    );
-  }
-
-  return (
-    <div
+  
+  const Component = (
+     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      onClick={handleCardClick}
-      className={onClick ? "cursor-pointer" : ""}
+      onClick={onClick ? handleCardClick : undefined}
+      className={cn(onClick ? "cursor-pointer" : "", isOverlay && "shadow-2xl")}
     >
       <Card
         className={cn(
           "hover:bg-muted/50 transition-colors relative",
-          isDragging && "opacity-50"
+          isDragging && "opacity-30"
         )}
       >
         <button
@@ -120,5 +111,12 @@ export function TicketCard({ ticket, onClick }: TicketCardProps) {
         </CardContent>
       </Card>
     </div>
-  );
+  )
+
+  if (isDragging) {
+    return <div ref={setNodeRef} style={style} className="rounded-lg border bg-card text-card-foreground shadow-sm opacity-50 h-[130px]" />;
+  }
+
+
+  return Component;
 }
