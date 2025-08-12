@@ -115,7 +115,7 @@ export default function Dashboard() {
           <div className="flex items-center">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
           </div>
-          <TicketBoard tickets={tickets} />
+          <TicketBoard tickets={tickets} setTickets={setTickets} />
         </main>
       </SidebarInset>
     </SidebarProvider>

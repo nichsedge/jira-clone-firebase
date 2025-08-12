@@ -1,34 +1,95 @@
 "use client";
 
-import { type Ticket } from "@/lib/types";
-import { TicketCard } from "./ticket-card";
+import { useMemo } from "react";
+import {
+  DndContext,
+  closestCorners,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
+import { type Ticket, type TicketStatus } from "@/lib/types";
+import { TicketColumn } from "./ticket-column";
 
-const columns: Ticket['status'][] = ['To Do', 'In Progress', 'Done'];
+const columns: TicketStatus[] = ["To Do", "In Progress", "Done"];
 
 interface TicketBoardProps {
   tickets: Ticket[];
+  setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>;
 }
 
-export function TicketBoard({ tickets }: TicketBoardProps) {
+export function TicketBoard({ tickets, setTickets }: TicketBoardProps) {
+  const ticketsByStatus = useMemo(() => {
+    const grouped: Record<TicketStatus, Ticket[]> = {
+      "To Do": [],
+      "In Progress": [],
+      Done: [],
+    };
+    for (const ticket of tickets) {
+      grouped[ticket.status].push(ticket);
+    }
+    return grouped;
+  }, [tickets]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+    if (active.id === over.id) return;
+
+    const activeContainer = active.data.current?.sortable.containerId;
+    const overContainer = over.data.current?.sortable.containerId || over.id;
+
+    if (activeContainer === overContainer) {
+      // Reordering within the same column
+      const columnTickets = ticketsByStatus[activeContainer as TicketStatus];
+      const oldIndex = columnTickets.findIndex((t) => t.id === active.id);
+      const newIndex = columnTickets.findIndex((t) => t.id === over.id);
+
+      const reordered = arrayMove(columnTickets, oldIndex, newIndex);
+      setTickets((prev) => [
+        ...prev.filter((t) => t.status !== activeContainer),
+        ...reordered,
+      ]);
+    } else {
+      // Moving to a different column
+      setTickets((prev) => {
+        return prev.map((ticket) => {
+          if (ticket.id === active.id) {
+            return { ...ticket, status: overContainer as TicketStatus };
+          }
+          return ticket;
+        });
+      });
+    }
+  };
+
   return (
-    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-      {columns.map(status => (
-        <div key={status} className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 px-1">
-            <h2 className="font-bold text-lg">{status}</h2>
-            <span className="text-muted-foreground bg-muted rounded-full px-2.5 py-0.5 text-sm font-medium">
-              {tickets.filter(t => t.status === status).length}
-            </span>
-          </div>
-          <div className="flex flex-col gap-4 rounded-lg bg-muted/60 p-4 min-h-[200px] border">
-            {tickets
-              .filter(ticket => ticket.status === status)
-              .map(ticket => (
-                <TicketCard key={ticket.id} ticket={ticket} />
-              ))}
-          </div>
-        </div>
-      ))}
-    </div>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+        {columns.map((status) => (
+          <TicketColumn
+            key={status}
+            status={status}
+            tickets={ticketsByStatus[status]}
+          />
+        ))}
+      </div>
+    </DndContext>
   );
 }
