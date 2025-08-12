@@ -1,13 +1,13 @@
 
 "use client";
 
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import {
   Home,
   Ticket as TicketIcon,
   Users,
   Settings,
-  Search,
   Mail,
   ChevronLeft,
 } from "lucide-react";
@@ -34,15 +34,35 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 
-import { Input } from "@/components/ui/input";
+import { syncEmailsAction } from "@/app/actions";
+import { useToast } from "@/hooks/use-toast";
+
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 
 export default function SettingsPage() {
+  const [isSyncing, startSyncTransition] = useTransition();
+  const { toast } = useToast();
 
   const handleSyncEmails = async () => {
-    alert("Syncing emails...");
+    startSyncTransition(async () => {
+      const result = await syncEmailsAction();
+      if (result.error) {
+        toast({
+          variant: "destructive",
+          title: "Uh oh! Something went wrong.",
+          description: result.error,
+        });
+      } else {
+        toast({
+          title: "Sync Complete!",
+          description: `${result.count} new ticket(s) created from emails.`,
+        });
+        // In a real app, we might want to redirect or update a global state
+        // For now, the user can navigate back to the dashboard to see them.
+      }
+    });
   };
 
   return (
@@ -129,9 +149,9 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium">sim.adams71@ethereal.email</p>
                     <p className="text-sm text-muted-foreground">Connected via IMAP</p>
                   </div>
-                  <Button onClick={handleSyncEmails}>
+                  <Button onClick={handleSyncEmails} disabled={isSyncing}>
                     <Mail className="mr-2 h-4 w-4" />
-                    Sync Emails
+                    {isSyncing ? "Syncing..." : "Sync Emails"}
                   </Button>
                 </div>
               </CardContent>

@@ -5,6 +5,7 @@ import { categorizeTicket } from '@/ai/flows/categorize-ticket';
 import { type Ticket, type TicketPriority, type User } from '@/lib/types';
 import { initialTickets } from '@/data/tickets'; // To get users
 import { z } from 'zod';
+import { fetchUnreadEmails, ParsedEmail } from '@/services/email-service';
 
 const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).reduce((acc, user) => {
   if (!acc.find(u => u.id === user.id)) {
@@ -93,4 +94,37 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
   
   return { ticket: { ...updatedTicketData, createdAt: new Date(), updatedAt: new Date(), reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' } } as Ticket };
 
+}
+
+export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: string, count: number }> {
+    try {
+        const emails = await fetchUnreadEmails();
+        const ticketEmails = emails.filter(email => email.subject?.includes('[TICKET]'));
+
+        if (ticketEmails.length === 0) {
+            return { tickets: [], count: 0 };
+        }
+
+        const newTickets: Ticket[] = [];
+
+        for (const email of ticketEmails) {
+            const title = email.subject!.replace('[TICKET]', '').trim();
+            const description = email.text || 'No description provided.';
+            
+            const result = await createTicketAction({
+                title,
+                description,
+                priority: 'Medium', // Default priority
+            });
+
+            if (result.ticket) {
+                newTickets.push(result.ticket);
+            }
+        }
+
+        return { tickets: newTickets, count: newTickets.length };
+    } catch (error) {
+        console.error('Email sync failed:', error);
+        return { error: 'Failed to sync emails.', count: 0 };
+    }
 }
