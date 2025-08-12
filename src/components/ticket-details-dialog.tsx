@@ -59,8 +59,8 @@ const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).red
 
 
 const formSchema = z.object({
-  title: z.string().min(2, { message: "Title must be at least 2 characters." }),
-  description: z.string().min(10, { message: "Description must be at least 10 characters." }),
+  title: z.string().min(1, { message: "Title is required." }),
+  description: z.string().min(1, { message: "Description is required." }),
   status: z.enum(['To Do', 'In Progress', 'Done']),
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
@@ -125,17 +125,20 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     }}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="text-2xl flex items-center justify-between">
+          <DialogTitle className="text-2xl flex items-center justify-between pr-12">
             {isEditing ? `Editing: ${ticket.title}` : ticket.title}
-            {!isEditing && (
-                <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)}>
-                    <Pencil className="w-5 h-5" />
-                    <span className="sr-only">Edit Ticket</span>
-                </Button>
-            )}
+            
           </DialogTitle>
           {!isEditing && <DialogDescription>{ticket.id}</DialogDescription>}
         </DialogHeader>
+
+        {!isEditing && (
+            <Button variant="outline" size="icon" onClick={() => setIsEditing(true)} className="absolute top-6 right-16">
+                <Pencil className="w-4 h-4" />
+                <span className="sr-only">Edit Ticket</span>
+            </Button>
+        )}
+
         {isEditing ? (
             <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto pr-6 -mr-6">
@@ -249,7 +252,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                     )}
                     />
                 </div>
-                <DialogFooter>
+                <DialogFooter className="pt-4">
                     <Button type="button" variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
                     <Button type="submit" disabled={isPending}>
                         {isPending ? "Saving..." : "Save Changes"}
@@ -265,13 +268,13 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
                     </div>
                 </div>
-                <div className="space-y-6">
+                <div className="space-y-6 border-l -ml-3 pl-6">
                     <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2"><Milestone className="w-4 h-4"/> Status</h4>
+                        <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><Milestone className="w-4 h-4"/> Status</h4>
                         <Badge variant="secondary">{ticket.status}</Badge>
                     </div>
                     <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2"><ArrowUp className="w-4 h-4"/> Priority</h4>
+                        <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><ArrowUp className="w-4 h-4"/> Priority</h4>
                         <Badge
                         variant="outline"
                         className={cn(
@@ -286,46 +289,52 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                     </div>
                     {ticket.category && (
                         <div className="space-y-2">
-                            <h4 className="font-semibold flex items-center gap-2"><Tag className="w-4 h-4"/> Category</h4>
+                            <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><Tag className="w-4 h-4"/> Category</h4>
                             <Badge variant="secondary">{ticket.category}</Badge>
                         </div>
                     )}
                     <Separator />
-                    <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2"><UserIcon className="w-4 h-4"/> Assignee</h4>
+                    <div className="space-y-4">
                         <div className="flex items-center gap-2">
+                            <UserIcon className="w-5 h-5 text-muted-foreground"/>
+                            <span className="font-semibold text-muted-foreground text-sm">Assignee</span>
+                        </div>
+                        <div className="flex items-center gap-2 pl-2">
                             {assignee ? (
                                 <>
                                     <Avatar className="h-7 w-7">
                                         <AvatarImage src={assignee.avatarUrl} alt={assignee.name} data-ai-hint="person avatar"/>
                                         <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
-                                    <span className="text-sm text-muted-foreground">{assignee.name}</span>
+                                    <span className="text-sm">{assignee.name}</span>
                                 </>
                             ) : (
-                                <span className="text-sm text-muted-foreground">Unassigned</span>
+                                <span className="text-sm text-muted-foreground pl-7">Unassigned</span>
                             )}
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <h4 className="font-semibold flex items-center gap-2"><UserIcon className="w-4 h-4"/> Reporter</h4>
-                        <div className="flex items-center gap-2">
+                    <div className="space-y-4">
+                         <div className="flex items-center gap-2">
+                            <UserIcon className="w-5 h-5 text-muted-foreground"/>
+                            <span className="font-semibold text-muted-foreground text-sm">Reporter</span>
+                        </div>
+                        <div className="flex items-center gap-2 pl-2">
                             <Avatar className="h-7 w-7">
                                 <AvatarImage src={ticket.reporter.avatarUrl} alt={ticket.reporter.name} data-ai-hint="person avatar" />
                                 <AvatarFallback>{ticket.reporter.name.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <span className="text-sm text-muted-foreground">{ticket.reporter.name}</span>
+                            <span className="text-sm">{ticket.reporter.name}</span>
                         </div>
                     </div>
                     <Separator />
                     <div className="space-y-2 text-sm">
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Created</span>
-                            <span>{formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</span>
+                            <span title={format(new Date(ticket.createdAt), "PPPppp")}>{formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</span>
                         </div>
                         <div className="flex justify-between items-center">
                             <span className="text-muted-foreground">Updated</span>
-                            <span>{formatDistanceToNow(new Date(ticket.updatedAt), { addSuffix: true })}</span>
+                            <span title={format(new Date(ticket.updatedAt), "PPPppp")}>{formatDistanceToNow(new Date(ticket.updatedAt), { addSuffix: true })}</span>
                         </div>
                     </div>
                 </div>
@@ -335,5 +344,3 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     </Dialog>
   );
 }
-
-    
