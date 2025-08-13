@@ -89,7 +89,7 @@ export default function Dashboard() {
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
+      <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
             <Logo />
@@ -157,8 +157,9 @@ export default function Dashboard() {
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center justify-between gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-1 items-center gap-4">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
+            <CreateTicketDialog onTicketCreated={handleTicketCreated} />
           </div>
           <div className="flex items-center gap-4">
             <div className="w-full flex-1 md:w-auto md:flex-initial">
@@ -175,7 +176,6 @@ export default function Dashboard() {
                 </div>
                 </form>
             </div>
-            <CreateTicketDialog onTicketCreated={handleTicketCreated} />
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
