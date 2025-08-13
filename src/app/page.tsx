@@ -133,16 +133,26 @@ export default function Dashboard() {
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link href="/settings">
-                  <Settings />
-                  Settings
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
+            <div className="flex items-center gap-2 p-2">
+                <UserNav />
+                <div className="flex flex-col text-sm">
+                    <span className="font-semibold">User</span>
+                    <span className="text-muted-foreground">user@example.com</span>
+                </div>
+            </div>
+             <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link href="/settings">
+                      <Settings />
+                      Settings
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                    <ThemeToggle />
+                </SidebarMenuItem>
+            </SidebarMenu>
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
@@ -162,11 +172,7 @@ export default function Dashboard() {
               </div>
             </form>
           </div>
-          <div className="flex items-center gap-2 md:gap-4">
-            <CreateTicketDialog onTicketCreated={handleTicketCreated} />
-            <ThemeToggle />
-            <UserNav />
-          </div>
+          <CreateTicketDialog onTicketCreated={handleTicketCreated} />
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           <div className="flex items-center">
