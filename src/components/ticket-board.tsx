@@ -19,6 +19,7 @@ import { TicketColumn } from "./ticket-column";
 import { TicketCard } from "./ticket-card";
 import { TicketDetailsDialog } from "./ticket-details-dialog";
 import { initialStatuses } from "@/data/statuses";
+import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
 
@@ -159,16 +160,20 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveTicket(null)}
     >
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        {statuses.map((status) => (
-          <TicketColumn
-            key={status}
-            status={status}
-            tickets={ticketsByStatus[status] || []}
-            onTicketClick={handleTicketClick}
-          />
-        ))}
-      </div>
+      <ScrollArea className="w-full">
+        <div className="flex gap-6 pb-4">
+          {statuses.map((status) => (
+            <TicketColumn
+              key={status}
+              status={status}
+              tickets={ticketsByStatus[status] || []}
+              onTicketClick={handleTicketClick}
+            />
+          ))}
+        </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+
       <DragOverlay>
         {activeTicket ? <TicketCard ticket={activeTicket} isOverlay /> : null}
       </DragOverlay>

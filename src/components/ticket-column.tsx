@@ -25,7 +25,7 @@ export function TicketColumn({ status, tickets, onTicketClick }: TicketColumnPro
   });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 w-[300px] flex-shrink-0">
       <div className="flex items-center gap-2 px-1">
         <h2 className="font-bold text-lg">{status}</h2>
         <span className="text-muted-foreground bg-muted rounded-full px-2.5 py-0.5 text-sm font-medium">
