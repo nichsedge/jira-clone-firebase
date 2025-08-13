@@ -48,7 +48,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { type Ticket, type User, type TicketStatus, type Comment } from "@/lib/types";
+import { type Ticket, type User, type TicketStatus } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
 import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2, FolderKanban, MessageSquare } from 'lucide-react';
 import { cn } from "@/lib/utils";
@@ -80,11 +80,6 @@ const formSchema = z.object({
   projectId: z.string().min(1, { message: "Project is required." }),
 });
 
-const commentSchema = z.object({
-  text: z.string().min(1, { message: "Comment cannot be empty." }),
-});
-
-
 export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpdated, onTicketDeleted }: TicketDetailsDialogProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -93,13 +88,6 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-  });
-
-  const commentForm = useForm<z.infer<typeof commentSchema>>({
-    resolver: zodResolver(commentSchema),
-    defaultValues: {
-      text: "",
-    },
   });
 
   useEffect(() => {
@@ -122,7 +110,6 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
 
   const assignee = allUsers.find(u => u.id === ticket.assignee?.id);
   const project = initialProjects.find(p => p.id === ticket.projectId);
-  const currentUser = allUsers[0]; // Dummy current user for comments
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (!ticket) return;
@@ -140,9 +127,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
           title: "Success!",
           description: "Ticket has been updated.",
         });
-        // We are faking the comment update locally
-        const updatedTicket = {...result.ticket, comments: ticket?.comments ?? [] }
-        onTicketUpdated(updatedTicket);
+        onTicketUpdated(result.ticket);
         setIsEditing(false);
       }
     });
@@ -169,28 +154,6 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
       }
     });
   }
-
-  function onCommentSubmit(values: z.infer<typeof commentSchema>) {
-    if (!ticket) return;
-    
-    const newComment: Comment = {
-      id: `COMMENT-${Math.floor(1000 + Math.random() * 9000)}`,
-      text: values.text,
-      author: currentUser,
-      createdAt: new Date(),
-    };
-    
-    const updatedTicket = {
-      ...ticket,
-      comments: [...(ticket.comments || []), newComment],
-      updatedAt: new Date(),
-    };
-    
-    // In a real app, this would be an API call
-    onTicketUpdated(updatedTicket);
-    commentForm.reset();
-  }
-
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -389,52 +352,6 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                         <h3 className="font-semibold mb-2 text-base">Description</h3>
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
                     </div>
-                     <Separator />
-                    <div className="space-y-4">
-                       <h3 className="font-semibold mb-2 text-base flex items-center gap-2"><MessageSquare className="w-5 h-5"/> Activity</h3>
-                        <Form {...commentForm}>
-                          <form onSubmit={commentForm.handleSubmit(onCommentSubmit)} className="flex items-start gap-3">
-                              <Avatar className="h-8 w-8 mt-1">
-                                <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} data-ai-hint="person avatar" />
-                                <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <FormField
-                                  control={commentForm.control}
-                                  name="text"
-                                  render={({ field }) => (
-                                    <FormItem>
-                                      <FormControl>
-                                        <Textarea placeholder="Add a comment..." {...field} className="min-h-[60px]" />
-                                      </FormControl>
-                                      <FormMessage />
-                                    </FormItem>
-                                  )}
-                                />
-                                 <Button type="submit" size="sm" className="mt-2" disabled={!commentForm.formState.isValid}>Comment</Button>
-                              </div>
-                          </form>
-                        </Form>
-
-                        <div className="space-y-4">
-                          {ticket.comments?.slice().reverse().map(comment => (
-                            <div key={comment.id} className="flex items-start gap-3">
-                               <Avatar className="h-8 w-8 mt-1">
-                                <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} data-ai-hint="person avatar" />
-                                <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-sm">{comment.author.name}</span>
-                                  <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground">{comment.text}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                    </div>
-
                 </div>
                 <div className="space-y-6">
                      <div className="rounded-lg border bg-muted/50 p-4 space-y-4">

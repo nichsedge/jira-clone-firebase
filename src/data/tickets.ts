@@ -1,5 +1,5 @@
 
-import { type Ticket, type User, type Project, type Comment } from '@/lib/types';
+import { type Ticket, type User, type Project } from '@/lib/types';
 
 const users: User[] = [
   { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' },
@@ -7,21 +7,6 @@ const users: User[] = [
   { id: 'USER-3', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/32x32/FEF3C7/92400E/png?text=C' },
   { id: 'USER-4', name: 'Diana Miller', avatarUrl: 'https://placehold.co/32x32/FEE2E2/991B1B/png?text=D' },
 ];
-
-const comments: Comment[] = [
-    {
-        id: 'COMMENT-1',
-        text: 'I\'ve confirmed this is happening on staging as well.',
-        author: users[2],
-        createdAt: new Date(new Date().setDate(new Date().getDate() - 1))
-    },
-    {
-        id: 'COMMENT-2',
-        text: 'Working on a fix for this now, should have a PR up by end of day.',
-        author: users[0],
-        createdAt: new Date()
-    }
-]
 
 export const initialProjects: Project[] = [
     { id: 'PROJ-1', name: 'ProFlow App', description: 'The main application development project.'},
@@ -42,7 +27,6 @@ export const initialTickets: Ticket[] = [
     assignee: users[0],
     reporter: users[1],
     projectId: 'PROJ-1',
-    comments: [],
   },
   {
     id: 'TICKET-5214',
@@ -56,7 +40,6 @@ export const initialTickets: Ticket[] = [
     assignee: users[2],
     reporter: users[3],
     projectId: 'PROJ-1',
-    comments: comments,
   },
   {
     id: 'TICKET-9632',
@@ -69,7 +52,6 @@ export const initialTickets: Ticket[] = [
     updatedAt: new Date(new Date().setDate(new Date().getDate() - 2)),
     reporter: users[0],
     projectId: 'PROJ-2',
-    comments: [],
   },
   {
     id: 'TICKET-1478',
@@ -83,7 +65,6 @@ export const initialTickets: Ticket[] = [
     assignee: users[1],
     reporter: users[2],
     projectId: 'PROJ-2',
-    comments: [],
   },
   {
     id: 'TICKET-6543',
@@ -97,7 +78,6 @@ export const initialTickets: Ticket[] = [
     assignee: users[3],
     reporter: users[0],
     projectId: 'PROJ-1',
-    comments: [],
   },
   {
     id: 'TICKET-3298',
@@ -111,6 +91,5 @@ export const initialTickets: Ticket[] = [
     assignee: users[0],
     reporter: users[3],
     projectId: 'PROJ-1',
-    comments: [],
   },
 ];

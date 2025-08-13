@@ -27,7 +27,7 @@ import {
 
 import { Input } from "@/components/ui/input";
 
-import { type Ticket, type Comment } from "@/lib/types";
+import { type Ticket } from "@/lib/types";
 import { initialTickets } from "@/data/tickets";
 import { TicketBoard } from "@/components/ticket-board";
 import { CreateTicketDialog } from "@/components/create-ticket-dialog";
@@ -50,7 +50,6 @@ export default function Dashboard() {
         ...t,
         createdAt: new Date(t.createdAt),
         updatedAt: new Date(t.updatedAt),
-        comments: t.comments?.map((c: any) => ({...c, createdAt: new Date(c.createdAt)})) || [],
       }));
       setTickets(parsedTickets);
     } else {
