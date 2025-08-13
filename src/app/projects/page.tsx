@@ -43,9 +43,12 @@ export default function ProjectsPage() {
     <SidebarProvider>
        <Sidebar>
         <SidebarHeader>
-          <div className="flex items-center gap-2 p-2">
-            <Logo />
-            <span className="font-semibold text-lg">ProFlow</span>
+           <div className="flex items-center justify-between p-2">
+            <div className="flex items-center gap-2">
+                <Logo />
+                <span className="font-semibold text-lg">ProFlow</span>
+            </div>
+            <SidebarTrigger className="hidden md:flex" />
           </div>
         </SidebarHeader>
         <SidebarContent>
