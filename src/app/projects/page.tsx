@@ -43,12 +43,9 @@ export default function ProjectsPage() {
     <SidebarProvider>
        <Sidebar>
         <SidebarHeader>
-           <div className="flex items-center justify-between p-2">
-            <div className="flex items-center gap-2">
-                <Logo />
-                <span className="font-semibold text-lg">ProFlow</span>
-            </div>
-            <SidebarTrigger className="hidden md:flex" />
+           <div className="flex items-center gap-2 p-2">
+            <Logo />
+            <span className="font-semibold text-lg">ProFlow</span>
           </div>
         </SidebarHeader>
         <SidebarContent>
@@ -102,7 +99,7 @@ export default function ProjectsPage() {
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <SidebarTrigger className="md:hidden" />
+          <SidebarTrigger />
           <div className="w-full flex-1">
              <div
               className="flex items-center gap-2 text-lg font-semibold"
