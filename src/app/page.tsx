@@ -157,25 +157,23 @@ export default function Dashboard() {
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center justify-between gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <div className="flex flex-1 items-center gap-4">
+          <div className="flex items-center gap-4">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
             <CreateTicketDialog onTicketCreated={handleTicketCreated} />
           </div>
-          <div className="flex items-center gap-4">
-            <div className="w-full flex-1 md:w-auto md:flex-initial">
-                <form>
-                <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                    type="search"
-                    placeholder="Search tickets..."
-                    className="w-full appearance-none bg-background pl-8 shadow-none md:w-64 lg:w-96"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                </form>
-            </div>
+          <div className="w-full flex-1 md:w-auto md:flex-initial">
+              <form>
+              <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                  type="search"
+                  placeholder="Search tickets..."
+                  className="w-full appearance-none bg-background pl-8 shadow-none md:w-64 lg:w-96"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+              </div>
+              </form>
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
