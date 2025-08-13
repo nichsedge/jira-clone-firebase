@@ -1,11 +1,13 @@
 
 import { type Ticket, type User, type Project } from '@/lib/types';
 
-const users: User[] = [
+export const allUsers: User[] = [
   { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' },
   { id: 'USER-2', name: 'Bob Williams', avatarUrl: 'https://placehold.co/32x32/D1FAE5/065F46/png?text=B' },
   { id: 'USER-3', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/32x32/FEF3C7/92400E/png?text=C' },
   { id: 'USER-4', name: 'Diana Miller', avatarUrl: 'https://placehold.co/32x32/FEE2E2/991B1B/png?text=D' },
+  { id: 'USER-5', name: 'Ethan Davis', avatarUrl: 'https://placehold.co/32x32/DBEAFE/1E40AF/png?text=E' },
+  { id: 'USER-6', name: 'Fiona Garcia', avatarUrl: 'https://placehold.co/32x32/FCE7F3/831843/png?text=F' },
 ];
 
 export const initialProjects: Project[] = [
@@ -24,8 +26,8 @@ export const initialTickets: Ticket[] = [
     priority: 'High',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 1)),
     updatedAt: new Date(new Date().setDate(new Date().getDate() - 1)),
-    assignee: users[0],
-    reporter: users[1],
+    assignee: allUsers[0],
+    reporter: allUsers[1],
     projectId: 'PROJ-1',
   },
   {
@@ -37,8 +39,8 @@ export const initialTickets: Ticket[] = [
     priority: 'High',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 3)),
     updatedAt: new Date(new Date().setDate(new Date().getDate() - 2)),
-    assignee: users[2],
-    reporter: users[3],
+    assignee: allUsers[2],
+    reporter: allUsers[3],
     projectId: 'PROJ-1',
   },
   {
@@ -50,7 +52,7 @@ export const initialTickets: Ticket[] = [
     priority: 'Medium',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 2)),
     updatedAt: new Date(new Date().setDate(new Date().getDate() - 2)),
-    reporter: users[0],
+    reporter: allUsers[0],
     projectId: 'PROJ-2',
   },
   {
@@ -62,8 +64,8 @@ export const initialTickets: Ticket[] = [
     priority: 'Low',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 5)),
     updatedAt: new Date(new Date().setDate(new Date().getDate() - 4)),
-    assignee: users[1],
-    reporter: users[2],
+    assignee: allUsers[1],
+    reporter: allUsers[2],
     projectId: 'PROJ-2',
   },
   {
@@ -75,8 +77,8 @@ export const initialTickets: Ticket[] = [
     priority: 'Medium',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 7)),
     updatedAt: new Date(new Date().setDate(new Date().getDate() - 3)),
-    assignee: users[3],
-    reporter: users[0],
+    assignee: allUsers[3],
+    reporter: allUsers[0],
     projectId: 'PROJ-1',
   },
   {
@@ -88,8 +90,8 @@ export const initialTickets: Ticket[] = [
     priority: 'High',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 10)),
     updatedAt: new Date(new Date().setDate(new Date().getDate() - 8)),
-    assignee: users[0],
-    reporter: users[3],
+    assignee: allUsers[0],
+    reporter: allUsers[3],
     projectId: 'PROJ-1',
   },
 ];

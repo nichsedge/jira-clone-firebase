@@ -36,15 +36,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { type Ticket, type User, type TicketPriority } from "@/lib/types"
 import { PlusCircle } from "lucide-react"
-import { initialTickets, initialProjects } from "@/data/tickets"
-
-const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).reduce((acc, user) => {
-  if (!acc.find(u => u.id === user.id)) {
-    acc.push(user);
-  }
-  return acc;
-}, [] as User[]);
-
+import { allUsers, initialProjects } from "@/data/tickets"
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
@@ -52,13 +44,15 @@ const formSchema = z.object({
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
   projectId: z.string().min(1, { message: "Project is required." }),
+  reporterId: z.string(),
 })
 
 type CreateTicketDialogProps = {
   onTicketCreated: (newTicket: Ticket) => void;
+  currentUser: User;
 };
 
-export function CreateTicketDialog({ onTicketCreated }: CreateTicketDialogProps) {
+export function CreateTicketDialog({ onTicketCreated, currentUser }: CreateTicketDialogProps) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
@@ -69,8 +63,12 @@ export function CreateTicketDialog({ onTicketCreated }: CreateTicketDialogProps)
       description: "",
       priority: 'Medium',
       projectId: initialProjects[0]?.id,
+      reporterId: currentUser.id,
     },
   })
+  
+  // Ensure reporterId is updated if currentUser changes
+  form.setValue('reporterId', currentUser.id);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {

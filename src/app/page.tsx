@@ -27,8 +27,8 @@ import {
 
 import { Input } from "@/components/ui/input";
 
-import { type Ticket } from "@/lib/types";
-import { initialTickets } from "@/data/tickets";
+import { type Ticket, type User } from "@/lib/types";
+import { initialTickets, allUsers as initialAllUsers } from "@/data/tickets";
 import { TicketBoard } from "@/components/ticket-board";
 import { CreateTicketDialog } from "@/components/create-ticket-dialog";
 import { UserNav } from "@/components/user-nav";
@@ -36,11 +36,15 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 
 const TICKETS_STORAGE_KEY = 'proflow-tickets';
+const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 
 export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isClient, setIsClient] = useState(false)
   const [searchTerm, setSearchTerm] = useState("");
+  const [allUsers, setAllUsers] = useState<User[]>(initialAllUsers);
+  const [currentUser, setCurrentUser] = useState<User>(initialAllUsers[0]);
+
 
   useEffect(() => {
     setIsClient(true)
@@ -55,6 +59,12 @@ export default function Dashboard() {
     } else {
       setTickets(initialTickets);
     }
+
+    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    if(storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
+
   }, [])
 
   useEffect(() => {
@@ -62,6 +72,12 @@ export default function Dashboard() {
       localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
     }
   }, [tickets, isClient]);
+
+   useEffect(() => {
+    if (isClient) {
+      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
+    }
+  }, [currentUser, isClient]);
 
   const filteredTickets = useMemo(() => {
     if (!searchTerm) return tickets;
@@ -89,7 +105,7 @@ export default function Dashboard() {
 
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center gap-2 p-2">
             <Logo />
@@ -134,11 +150,7 @@ export default function Dashboard() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                <UserNav />
-                <div className="flex flex-col text-sm">
-                    <span className="font-semibold">User</span>
-                    <span className="text-muted-foreground">user@example.com</span>
-                </div>
+                 {isClient && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>
@@ -157,9 +169,9 @@ export default function Dashboard() {
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center justify-between gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <div className="flex items-center gap-4">
+           <div className="flex items-center gap-4">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
-            <CreateTicketDialog onTicketCreated={handleTicketCreated} />
+            {isClient && <CreateTicketDialog onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
           </div>
           <div className="w-full flex-1 md:w-auto md:flex-initial">
               <form>

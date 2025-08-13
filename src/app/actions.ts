@@ -3,17 +3,9 @@
 
 import { categorizeTicket } from '@/ai/flows/categorize-ticket';
 import { type Ticket, type TicketPriority, type User, TicketStatus } from '@/lib/types';
-import { initialTickets } from '@/data/tickets'; // To get users
+import { allUsers } from '@/data/tickets';
 import { z } from 'zod';
 import { fetchUnreadEmails, ParsedMail } from '@/services/email-service';
-
-const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).reduce((acc, user) => {
-  if (!acc.find(u => u.id === user.id)) {
-    acc.push(user);
-  }
-  return acc;
-}, [] as User[]);
-
 
 const createTicketSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -21,6 +13,7 @@ const createTicketSchema = z.object({
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
   projectId: z.string().min(1, "Project is required."),
+  reporterId: z.string().min(1, "Reporter is required"),
 });
 
 const updateTicketSchema = z.object({
@@ -48,11 +41,16 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
     };
   }
   
-  const { title, description, priority, assigneeId, projectId } = validatedFields.data;
+  const { title, description, priority, assigneeId, projectId, reporterId } = validatedFields.data;
 
   try {
     const { category } = await categorizeTicket({ title, description });
     
+    const reporter = allUsers.find(u => u.id === reporterId);
+    if (!reporter) {
+        return { error: 'Invalid reporter.' };
+    }
+
     // In a real app, you would save to a database here.
     // For this example, we're returning the data to be handled client-side.
     const now = new Date();
@@ -66,7 +64,7 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
       createdAt: now,
       updatedAt: now,
       assignee: allUsers.find(u => u.id === assigneeId),
-      reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' }, // Dummy reporter
+      reporter,
       projectId,
     };
 
@@ -90,6 +88,8 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
   // For this example, we're just returning the updated data.
   const { id, ...updateData } = validatedFields.data;
   
+  // This is a simplified update. In a real app, you'd fetch the existing ticket
+  // and merge the fields.
   const updatedTicket: Ticket = {
     id,
     title: updateData.title,
@@ -99,9 +99,10 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     assignee: allUsers.find(u => u.id === updateData.assigneeId),
     category: updateData.category,
     projectId: updateData.projectId,
-    createdAt: new Date(), // In a real app, you'd fetch the original creation date
+    // These would not be updated like this in a real scenario
+    createdAt: new Date(), 
     updatedAt: new Date(),
-    reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' }, // Dummy reporter
+    reporter: allUsers[0], // Assuming a default/mocked reporter
   };
 
   return { ticket: updatedTicket };

@@ -52,7 +52,7 @@ import { type Ticket, type User, type TicketStatus } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
 import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2, FolderKanban, MessageSquare } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { initialTickets, initialProjects } from "@/data/tickets"; // To get users for assignee dropdown
+import { allUsers, initialProjects } from "@/data/tickets"; 
 import { initialStatuses } from "@/data/statuses";
 
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
@@ -64,14 +64,6 @@ interface TicketDetailsDialogProps {
   onTicketUpdated: (ticket: Ticket) => void;
   onTicketDeleted: (ticketId: string) => void;
 }
-
-const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).reduce((acc, user) => {
-  if (!acc.find(u => u.id === user.id)) {
-    acc.push(user);
-  }
-  return acc;
-}, [] as User[]);
-
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
@@ -126,7 +118,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     if (!ticket) return;
 
     startTransition(async () => {
-      const result = await updateTicketAction({ id: ticket.id, ...values });
+       const result = await updateTicketAction({ id: ticket.id, ...values });
       if (result.error) {
         toast({
           variant: "destructive",
@@ -138,7 +130,9 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
           title: "Success!",
           description: "Ticket has been updated.",
         });
-        onTicketUpdated(result.ticket);
+        // We need to merge the existing ticket data with the updated data
+        const fullyUpdatedTicket = { ...ticket, ...result.ticket };
+        onTicketUpdated(fullyUpdatedTicket);
         setIsEditing(false);
       }
     });
