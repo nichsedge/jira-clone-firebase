@@ -85,22 +85,26 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
       error: "Invalid fields.",
     };
   }
-  
+
   // In a real app, you would update the database here.
   // For this example, we're just returning the updated data.
-  // We won't have the full user objects here, so we'll just return the ID for the assignee.
-  const updatedTicketData = {
-    ...validatedFields.data,
-    assignee: allUsers.find(u => u.id === validatedFields.data.assigneeId)
+  const { id, ...updateData } = validatedFields.data;
+  
+  const updatedTicket: Ticket = {
+    id,
+    title: updateData.title,
+    description: updateData.description,
+    status: updateData.status as TicketStatus,
+    priority: updateData.priority,
+    assignee: allUsers.find(u => u.id === updateData.assigneeId),
+    category: updateData.category,
+    projectId: updateData.projectId,
+    createdAt: new Date(), // In a real app, you'd fetch the original creation date
+    updatedAt: new Date(),
+    reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' }, // Dummy reporter
   };
 
-
-  // We are not persisting the full ticket object to keep it simple
-  // so we will just return the validated data.
-  // In a real app you would fetch the full ticket object from DB and return it.
-  
-  return { ticket: { ...updatedTicketData, createdAt: new Date(), updatedAt: new Date(), reporter: { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' } } as Ticket };
-
+  return { ticket: updatedTicket };
 }
 
 export async function deleteTicketAction(values: z.infer<typeof deleteTicketSchema>): Promise<{ id?: string, error?: string }> {
