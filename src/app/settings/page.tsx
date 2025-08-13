@@ -47,11 +47,13 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { useRouter } from "next/navigation";
-import { Ticket, TicketStatus } from "@/lib/types";
+import { Ticket, TicketStatus, User } from "@/lib/types";
 import { initialStatuses } from "@/data/statuses";
+import { allUsers as initialAllUsers } from "@/data/tickets";
 
 const TICKETS_STORAGE_KEY = 'proflow-tickets';
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
+const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 
 
 export default function SettingsPage() {
@@ -62,6 +64,8 @@ export default function SettingsPage() {
   const [statuses, setStatuses] = useState<TicketStatus[]>([]);
   const [newStatus, setNewStatus] = useState("");
   const [isClient, setIsClient] = useState(false);
+  const [allUsers, setAllUsers] = useState<User[]>(initialAllUsers);
+  const [currentUser, setCurrentUser] = useState<User>(initialAllUsers[0]);
 
   useEffect(() => {
     setIsClient(true);
@@ -71,6 +75,12 @@ export default function SettingsPage() {
     } else {
       setStatuses(initialStatuses);
     }
+    
+    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    if(storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
+
   }, []);
 
   useEffect(() => {
@@ -78,6 +88,12 @@ export default function SettingsPage() {
       localStorage.setItem(STATUSES_STORAGE_KEY, JSON.stringify(statuses));
     }
   }, [statuses, isClient]);
+
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
+    }
+  }, [currentUser, isClient]);
 
   const handleAddStatus = () => {
     if (newStatus.trim() && !statuses.includes(newStatus.trim())) {
@@ -179,11 +195,7 @@ export default function SettingsPage() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                <UserNav />
-                <div className="flex flex-col text-sm">
-                    <span className="font-semibold">User</span>
-                    <span className="text-muted-foreground">user@example.com</span>
-                </div>
+                 {isClient && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>

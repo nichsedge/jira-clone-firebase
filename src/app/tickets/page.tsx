@@ -36,15 +36,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
-import { type Ticket } from "@/lib/types";
-import { initialTickets, initialProjects } from "@/data/tickets";
+import { type Ticket, type User } from "@/lib/types";
+import { initialTickets, initialProjects, allUsers as initialAllUsers } from "@/data/tickets";
 import { cn } from "@/lib/utils";
 
 const TICKETS_STORAGE_KEY = 'proflow-tickets';
+const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 
 export default function TicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [allUsers, setAllUsers] = useState<User[]>(initialAllUsers);
+  const [currentUser, setCurrentUser] = useState<User>(initialAllUsers[0]);
 
   useEffect(() => {
     setIsClient(true);
@@ -59,7 +62,20 @@ export default function TicketsPage() {
     } else {
       setTickets(initialTickets);
     }
+
+    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    if(storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
+
   }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
+    }
+  }, [currentUser, isClient]);
+
 
   return (
     <SidebarProvider>
@@ -108,11 +124,7 @@ export default function TicketsPage() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                <UserNav />
-                <div className="flex flex-col text-sm">
-                    <span className="font-semibold">User</span>
-                    <span className="text-muted-foreground">user@example.com</span>
-                </div>
+                {isClient && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>

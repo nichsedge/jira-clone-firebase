@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Home,
@@ -36,9 +37,30 @@ import {
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
-import { initialProjects } from "@/data/tickets";
+import { initialProjects, allUsers as initialAllUsers } from "@/data/tickets";
+import { User } from "@/lib/types";
+
+const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 
 export default function ProjectsPage() {
+  const [isClient, setIsClient] = useState(false);
+  const [allUsers, setAllUsers] = useState<User[]>(initialAllUsers);
+  const [currentUser, setCurrentUser] = useState<User>(initialAllUsers[0]);
+
+  useEffect(() => {
+    setIsClient(true);
+    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    if(storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
+    }
+  }, [currentUser, isClient]);
+
   return (
     <SidebarProvider>
        <Sidebar collapsible="icon">
@@ -86,11 +108,7 @@ export default function ProjectsPage() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                <UserNav />
-                <div className="flex flex-col text-sm">
-                    <span className="font-semibold">User</span>
-                    <span className="text-muted-foreground">user@example.com</span>
-                </div>
+                {isClient && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>
