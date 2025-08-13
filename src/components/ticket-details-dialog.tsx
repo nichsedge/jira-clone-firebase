@@ -53,6 +53,9 @@ import { format, formatDistanceToNow } from "date-fns";
 import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2, FolderKanban, MessageSquare } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { initialTickets, initialProjects } from "@/data/tickets"; // To get users for assignee dropdown
+import { initialStatuses } from "@/data/statuses";
+
+const STATUSES_STORAGE_KEY = 'proflow-statuses';
 
 interface TicketDetailsDialogProps {
   ticket: Ticket | null;
@@ -73,7 +76,7 @@ const allUsers = initialTickets.flatMap(t => t.assignee ? [t.assignee] : []).red
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
   description: z.string().min(1, { message: "Description is required." }),
-  status: z.enum(['To Do', 'In Progress', 'Done']),
+  status: z.string().min(1, { message: "Status is required."}),
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
   category: z.string().optional(),
@@ -85,6 +88,14 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   const { toast } = useToast();
+  const [statuses, setStatuses] = useState<TicketStatus[]>(initialStatuses);
+
+  useEffect(() => {
+    const storedStatuses = localStorage.getItem(STATUSES_STORAGE_KEY);
+    if (storedStatuses) {
+      setStatuses(JSON.parse(storedStatuses));
+    }
+  }, []);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -245,7 +256,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                            {(['To Do', 'In Progress', 'Done'] as TicketStatus[]).map(status => (
+                            {statuses.map(status => (
                                 <SelectItem key={status} value={status}>{status}</SelectItem>
                             ))}
                             </SelectContent>

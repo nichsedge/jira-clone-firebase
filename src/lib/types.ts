@@ -1,5 +1,5 @@
 
-export type TicketStatus = 'To Do' | 'In Progress' | 'Done';
+export type TicketStatus = string;
 export type TicketPriority = 'Low' | 'Medium' | 'High';
 
 export type User = {

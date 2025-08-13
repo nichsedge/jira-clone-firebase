@@ -2,7 +2,7 @@
 'use server';
 
 import { categorizeTicket } from '@/ai/flows/categorize-ticket';
-import { type Ticket, type TicketPriority, type User } from '@/lib/types';
+import { type Ticket, type TicketPriority, type User, TicketStatus } from '@/lib/types';
 import { initialTickets } from '@/data/tickets'; // To get users
 import { z } from 'zod';
 import { fetchUnreadEmails, ParsedMail } from '@/services/email-service';
@@ -27,7 +27,7 @@ const updateTicketSchema = z.object({
   id: z.string(),
   title: z.string().min(1, 'Title is required.'),
   description: z.string().min(1, 'Description is required.'),
-  status: z.enum(['To Do', 'In Progress', 'Done']),
+  status: z.string().min(1, 'Status is required.'),
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
   category: z.string().optional(),

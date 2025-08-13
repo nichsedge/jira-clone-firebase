@@ -18,8 +18,9 @@ import { type Ticket, type TicketStatus } from "@/lib/types";
 import { TicketColumn } from "./ticket-column";
 import { TicketCard } from "./ticket-card";
 import { TicketDetailsDialog } from "./ticket-details-dialog";
+import { initialStatuses } from "@/data/statuses";
 
-const columns: TicketStatus[] = ["To Do", "In Progress", "Done"];
+const STATUSES_STORAGE_KEY = 'proflow-statuses';
 
 interface TicketBoardProps {
   tickets: Ticket[];
@@ -32,25 +33,31 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isClient, setIsClient] = useState(false)
+  const [statuses, setStatuses] = useState<TicketStatus[]>([]);
 
   useEffect(() => {
     setIsClient(true)
+    const storedStatuses = localStorage.getItem(STATUSES_STORAGE_KEY);
+    if (storedStatuses) {
+      setStatuses(JSON.parse(storedStatuses));
+    } else {
+      setStatuses(initialStatuses);
+    }
   }, [])
 
 
   const ticketsByStatus = useMemo(() => {
-    const grouped: Record<TicketStatus, Ticket[]> = {
-      "To Do": [],
-      "In Progress": [],
-      Done: [],
-    };
+    const grouped: Record<TicketStatus, Ticket[]> = {};
+    statuses.forEach(status => {
+        grouped[status] = [];
+    });
     for (const ticket of tickets) {
       if (ticket.status && grouped[ticket.status]) {
         grouped[ticket.status].push(ticket);
       }
     }
     return grouped;
-  }, [tickets]);
+  }, [tickets, statuses]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -91,7 +98,7 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
       const activeTicket = newTickets[activeTicketIndex];
   
       // Dropping on a column
-      if (columns.includes(overId as TicketStatus)) {
+      if (statuses.includes(overId as TicketStatus)) {
         const newStatus = overId as TicketStatus;
         if (activeTicket.status !== newStatus) {
           activeTicket.status = newStatus;
@@ -106,10 +113,10 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
              newIndex = lastTicketIndex + 1;
           } else {
             // Find first ticket of next column
-            const columnIndex = columns.indexOf(newStatus);
+            const columnIndex = statuses.indexOf(newStatus);
             let nextColumnTicketIndex = -1;
-            for(let i = columnIndex + 1; i < columns.length; i++) {
-                const foundTicket = newTickets.find(t => t.status === columns[i]);
+            for(let i = columnIndex + 1; i < statuses.length; i++) {
+                const foundTicket = newTickets.find(t => t.status === statuses[i]);
                 if (foundTicket) {
                     nextColumnTicketIndex = newTickets.indexOf(foundTicket);
                     break;
@@ -153,7 +160,7 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
       onDragCancel={() => setActiveTicket(null)}
     >
       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-        {columns.map((status) => (
+        {statuses.map((status) => (
           <TicketColumn
             key={status}
             status={status}

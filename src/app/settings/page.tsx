@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import {
   Home,
@@ -11,6 +11,9 @@ import {
   Mail,
   ChevronLeft,
   FolderKanban,
+  Trash2,
+  Plus,
+  Workflow,
 } from "lucide-react";
 
 import {
@@ -31,9 +34,11 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 
 import { syncEmailsAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
@@ -42,14 +47,65 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { useRouter } from "next/navigation";
-import { Ticket } from "@/lib/types";
+import { Ticket, TicketStatus } from "@/lib/types";
+import { initialStatuses } from "@/data/statuses";
 
 const TICKETS_STORAGE_KEY = 'proflow-tickets';
+const STATUSES_STORAGE_KEY = 'proflow-statuses';
+
 
 export default function SettingsPage() {
   const [isSyncing, startSyncTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
+
+  const [statuses, setStatuses] = useState<TicketStatus[]>([]);
+  const [newStatus, setNewStatus] = useState("");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    const storedStatuses = localStorage.getItem(STATUSES_STORAGE_KEY);
+    if (storedStatuses) {
+      setStatuses(JSON.parse(storedStatuses));
+    } else {
+      setStatuses(initialStatuses);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem(STATUSES_STORAGE_KEY, JSON.stringify(statuses));
+    }
+  }, [statuses, isClient]);
+
+  const handleAddStatus = () => {
+    if (newStatus.trim() && !statuses.includes(newStatus.trim())) {
+      setStatuses([...statuses, newStatus.trim()]);
+      setNewStatus("");
+      toast({
+        title: "Status added!",
+        description: `"${newStatus.trim()}" has been added to your workflow.`,
+      });
+    }
+  };
+
+  const handleDeleteStatus = (statusToDelete: TicketStatus) => {
+    if (statuses.length <= 1) {
+        toast({
+            variant: "destructive",
+            title: "Cannot delete status",
+            description: "You must have at least one status in your workflow.",
+        });
+        return;
+    }
+    // You might want to add logic here to handle tickets with the deleted status
+    setStatuses(statuses.filter(status => status !== statusToDelete));
+     toast({
+        title: "Status removed!",
+        description: `"${statusToDelete}" has been removed from your workflow.`,
+      });
+  };
 
   const handleSyncEmails = async () => {
     startSyncTransition(async () => {
@@ -155,26 +211,59 @@ export default function SettingsPage() {
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-          <Card>
-              <CardHeader>
-                <CardTitle>Email Integration</CardTitle>
-                <CardDescription>
-                  Connect your support inbox to automatically create tickets from emails.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center space-x-4">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">sim.adams71@ethereal.email</p>
-                    <p className="text-sm text-muted-foreground">Connected via IMAP</p>
-                  </div>
-                  <Button onClick={handleSyncEmails} disabled={isSyncing}>
-                    <Mail className="mr-2 h-4 w-4" />
-                    {isSyncing ? "Syncing..." : "Sync Emails"}
-                  </Button>
-                </div>
-              </CardContent>
-          </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Email Integration</CardTitle>
+                        <CardDescription>
+                        Connect your support inbox to automatically create tickets from emails.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center space-x-4">
+                        <div className="flex-1">
+                            <p className="text-sm font-medium">sim.adams71@ethereal.email</p>
+                            <p className="text-sm text-muted-foreground">Connected via IMAP</p>
+                        </div>
+                        <Button onClick={handleSyncEmails} disabled={isSyncing}>
+                            <Mail className="mr-2 h-4 w-4" />
+                            {isSyncing ? "Syncing..." : "Sync Emails"}
+                        </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Workflow /> Workflow Statuses</CardTitle>
+                        <CardDescription>
+                        Customize the columns on your ticket board.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                            {isClient && statuses.map(status => (
+                                <div key={status} className="flex items-center justify-between gap-2">
+                                    <span className="font-medium text-sm">{status}</span>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteStatus(status)}>
+                                        <Trash2 className="w-4 h-4 text-muted-foreground" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                    <CardFooter className="border-t pt-6">
+                        <div className="flex w-full items-center gap-2">
+                            <Input 
+                                placeholder="Add new status" 
+                                value={newStatus}
+                                onChange={(e) => setNewStatus(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddStatus()}
+                            />
+                            <Button onClick={handleAddStatus}><Plus className="mr-2 h-4 w-4" /> Add</Button>
+                        </div>
+                    </CardFooter>
+                </Card>
+            </div>
         </main>
       </SidebarInset>
     </SidebarProvider>
