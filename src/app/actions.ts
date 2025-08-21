@@ -26,7 +26,6 @@ const updateTicketSchema = z.object({
   assigneeId: z.string().optional(),
   category: z.string().optional(),
   projectId: z.string().min(1, "Project is required."),
-  // This field is for passing the full reporter object
   reporter: z.any(),
 });
 
@@ -88,13 +87,17 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     };
   }
 
-  // In a real app, you would update the database here.
-  // For this example, we're just returning the updated data.
   const { id, reporter, ...updateData } = validatedFields.data;
   
-  // This is a simplified update. In a real app, you'd fetch the existing ticket
-  // and merge the fields.
+  const existingTicket: Partial<Ticket> = {
+    // In a real app, you would fetch the existing ticket from the database.
+    // For this example, we're building it from the incoming data.
+    reporter: reporter as User,
+    createdAt: new Date(), // This should be the original creation date
+  };
+
   const updatedTicket: Ticket = {
+    ...existingTicket,
     id,
     title: updateData.title,
     description: updateData.description,
@@ -103,10 +106,9 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     assignee: allUsers.find(u => u.id === updateData.assigneeId),
     category: updateData.category,
     projectId: updateData.projectId,
-    // These would not be updated like this in a real scenario
-    createdAt: new Date(), 
     updatedAt: new Date(),
     reporter: reporter as User,
+    createdAt: existingTicket.createdAt || new Date(),
   };
 
   if (updatedTicket.status === 'Done' && updatedTicket.reporter.email) {
@@ -118,7 +120,6 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
           });
       } catch (emailError) {
           console.error("Failed to send email notification:", emailError);
-          // We don't block the ticket update, but we can return a partial error/warning
           return { ticket: updatedTicket, error: "Ticket updated, but failed to send email notification." };
       }
   }
@@ -136,7 +137,6 @@ export async function deleteTicketAction(values: z.infer<typeof deleteTicketSche
         };
     }
 
-    // In a real app, you would delete from the database here.
     return { id: validatedFields.data.id };
 }
 
@@ -153,11 +153,16 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
         const newTickets: Ticket[] = [];
 
         for (const email of ticketEmails) {
-            const title = email.subject?.replace("[TICKET]", "").trim() ?? "New Ticket";
-            const description = email.text ?? "No description provided.";
+            const title = email.subject?.replace("[TICKET]", "").trim() || "New Ticket from Email";
+            const description = email.text || "No description provided.";
             
             const fromEmail = email.from?.value[0]?.address;
-            const fromName = email.from?.value[0]?.name || fromEmail?.split('@')[0] || "Email User";
+            if (!fromEmail) {
+                console.warn("Skipping email without a 'from' address:", email.messageId);
+                continue;
+            }
+
+            const fromName = email.from?.value[0]?.name || fromEmail.split('@')[0] || "Email User";
 
             const now = new Date();
             
@@ -165,16 +170,16 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
                 id: `user-${fromEmail}`, 
                 name: fromName, 
                 avatarUrl: `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${fromName.charAt(0).toUpperCase()}`, 
-                email: fromEmail 
+                email: fromEmail,
             };
 
             const newTicket: Ticket = {
-              id: `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
+              id: email.messageId || `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
               title,
               description,
               status: 'To Do',
-              category: "From Email", // Default category
-              priority: 'Medium', // Default priority
+              category: "From Email",
+              priority: 'Medium',
               createdAt: now,
               updatedAt: now,
               reporter: reporter,
