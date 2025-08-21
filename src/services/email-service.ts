@@ -21,9 +21,7 @@ export async function fetchUnreadEmails(): Promise<ParsedMail[]> {
     return new Promise((resolve, reject) => {
         const imap = new Imap(imapConfig);
         const emails: ParsedMail[] = [];
-        let completed = 0;
-        let totalMessages = 0;
-
+        
         const processMessage = (msg: Imap.ImapMessage): Promise<ParsedMail> => {
             return new Promise((resolveMessage, rejectMessage) => {
                 let buffer = '';
@@ -41,7 +39,7 @@ export async function fetchUnreadEmails(): Promise<ParsedMail[]> {
         };
 
         imap.once('ready', () => {
-            imap.openBox('INBOX', true, (err, box) => {
+            imap.openBox('INBOX', false, (err, box) => { // false so we don't mark as read automatically
                 if (err) {
                     imap.end();
                     return reject(err);
@@ -53,37 +51,39 @@ export async function fetchUnreadEmails(): Promise<ParsedMail[]> {
                         return reject(err);
                     }
 
-                    totalMessages = results.length;
-                    if (totalMessages === 0) {
+                    if (results.length === 0) {
                         imap.end();
                         return resolve([]);
                     }
 
                     const f = imap.fetch(results, { bodies: '' });
-                    
+                    const messagePromises: Promise<ParsedMail>[] = [];
+
                     f.on('message', (msg, seqno) => {
-                        processMessage(msg).then(parsedMail => {
-                            emails.push(parsedMail);
-                            completed++;
-                            if (completed === totalMessages) {
-                                imap.end();
-                            }
-                        }).catch(err => {
-                            console.error('Error parsing email:', err);
-                            completed++;
-                             if (completed === totalMessages) {
-                                imap.end();
-                            }
-                        });
+                        messagePromises.push(processMessage(msg));
                     });
 
                     f.once('error', (err) => {
                         console.error('Fetch error:', err);
+                        imap.end();
                         reject(err);
                     });
 
                     f.once('end', () => {
-                        // All messages have been fetched
+                        Promise.all(messagePromises).then(parsedEmails => {
+                            // Mark emails as read after successful parsing
+                            imap.addFlags(results, ['\\Seen'], (err) => {
+                                if (err) {
+                                    console.error('Error marking emails as read:', err);
+                                    // Still resolve with emails, but log the error
+                                }
+                                imap.end();
+                                resolve(parsedEmails);
+                            });
+                        }).catch(err => {
+                             imap.end();
+                             reject(err);
+                        })
                     });
                 });
             });
@@ -94,7 +94,7 @@ export async function fetchUnreadEmails(): Promise<ParsedMail[]> {
         });
 
         imap.once('end', () => {
-           resolve(emails);
+           // Connection ended
         });
 
         imap.connect();
