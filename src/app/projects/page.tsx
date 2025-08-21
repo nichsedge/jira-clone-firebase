@@ -41,22 +41,30 @@ import { initialProjects, allUsers as initialAllUsers } from "@/data/tickets";
 import { User } from "@/lib/types";
 
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
+const USERS_STORAGE_KEY = 'proflow-users';
 
 export default function ProjectsPage() {
   const [isClient, setIsClient] = useState(false);
-  const [allUsers, setAllUsers] = useState<User[]>(initialAllUsers);
-  const [currentUser, setCurrentUser] = useState<User>(initialAllUsers[0]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
 
   useEffect(() => {
     setIsClient(true);
+    
+    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+    const users = storedUsers ? JSON.parse(storedUsers) : initialAllUsers;
+    setAllUsers(users);
+
     const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
     if(storedUser) {
       setCurrentUser(JSON.parse(storedUser));
+    } else if (users.length > 0) {
+      setCurrentUser(users[0]);
     }
   }, []);
 
   useEffect(() => {
-    if (isClient) {
+    if (isClient && currentUser) {
       localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
     }
   }, [currentUser, isClient]);
@@ -98,7 +106,7 @@ export default function ProjectsPage() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
-                <Link href="#">
+                <Link href="/users">
                   <Users />
                   Users
                 </Link>
@@ -108,7 +116,7 @@ export default function ProjectsPage() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                {isClient && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
+                {isClient && currentUser && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>

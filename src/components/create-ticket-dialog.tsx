@@ -36,7 +36,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { type Ticket, type User, type TicketPriority } from "@/lib/types"
 import { PlusCircle } from "lucide-react"
-import { allUsers, initialProjects } from "@/data/tickets"
+import { initialProjects } from "@/data/tickets"
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
@@ -44,15 +44,16 @@ const formSchema = z.object({
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
   projectId: z.string().min(1, { message: "Project is required." }),
-  reporterId: z.string(),
+  reporterId: z.string().min(1, { message: "Reporter is required." }),
 })
 
 type CreateTicketDialogProps = {
+  allUsers: User[];
   onTicketCreated: (newTicket: Ticket) => void;
   currentUser: User;
 };
 
-export function CreateTicketDialog({ onTicketCreated, currentUser }: CreateTicketDialogProps) {
+export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: CreateTicketDialogProps) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
 
@@ -67,8 +68,11 @@ export function CreateTicketDialog({ onTicketCreated, currentUser }: CreateTicke
     },
   })
   
-  // Ensure reporterId is updated if currentUser changes
-  form.setValue('reporterId', currentUser.id);
+  // Ensure reporterId is updated if currentUser changes, but only as a default
+  if (form.getValues('reporterId') !== currentUser.id) {
+    form.setValue('reporterId', currentUser.id);
+  }
+
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
@@ -86,7 +90,13 @@ export function CreateTicketDialog({ onTicketCreated, currentUser }: CreateTicke
         })
         onTicketCreated(result.ticket)
         setOpen(false)
-        form.reset()
+        form.reset({
+            title: "",
+            description: "",
+            priority: 'Medium',
+            projectId: initialProjects[0]?.id,
+            reporterId: currentUser.id,
+        })
       }
     })
   }
@@ -160,42 +170,66 @@ export function CreateTicketDialog({ onTicketCreated, currentUser }: CreateTicke
                 </FormItem>
               )}
             />
-             <FormField
+            <div className="grid grid-cols-2 gap-4">
+                 <FormField
+                  control={form.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priority</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a priority" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {(['Low', 'Medium', 'High'] as TicketPriority[]).map(priority => (
+                            <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="assigneeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assignee</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an assignee" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                          {allUsers.map(user => (
+                            <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            </div>
+            <FormField
               control={form.control}
-              name="priority"
+              name="reporterId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Priority</FormLabel>
+                  <FormLabel>Reporter</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a priority" />
+                        <SelectValue placeholder="Select a reporter" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {(['Low', 'Medium', 'High'] as TicketPriority[]).map(priority => (
-                        <SelectItem key={priority} value={priority}>{priority}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="assigneeId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Assignee</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select an assignee" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
                       {allUsers.map(user => (
                         <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                       ))}

@@ -41,13 +41,14 @@ import { syncEmailsAction } from "@/app/actions";
 
 const TICKETS_STORAGE_KEY = 'proflow-tickets';
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
+const USERS_STORAGE_KEY = 'proflow-users';
 
 export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isClient, setIsClient] = useState(false)
   const [searchTerm, setSearchTerm] = useState("");
-  const [allUsers, setAllUsers] = useState<User[]>(initialAllUsers);
-  const [currentUser, setCurrentUser] = useState<User>(initialAllUsers[0]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
   const [isSyncing, startSyncTransition] = useTransition();
   const { toast } = useToast();
 
@@ -65,10 +66,16 @@ export default function Dashboard() {
     } else {
       setTickets(initialTickets);
     }
+    
+    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+    const users = storedUsers ? JSON.parse(storedUsers) : initialAllUsers;
+    setAllUsers(users);
 
     const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
     if(storedUser) {
       setCurrentUser(JSON.parse(storedUser));
+    } else if (users.length > 0) {
+      setCurrentUser(users[0]);
     }
 
   }, [])
@@ -80,7 +87,7 @@ export default function Dashboard() {
   }, [tickets, isClient]);
 
    useEffect(() => {
-    if (isClient) {
+    if (isClient && currentUser) {
       localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
     }
   }, [currentUser, isClient]);
@@ -167,7 +174,7 @@ export default function Dashboard() {
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton asChild>
-                <Link href="#">
+                <Link href="/users">
                   <Users />
                   Users
                 </Link>
@@ -177,7 +184,7 @@ export default function Dashboard() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                 {isClient && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
+                 {isClient && currentUser && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>
@@ -196,9 +203,9 @@ export default function Dashboard() {
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center justify-between gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-           <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
-            {isClient && <CreateTicketDialog onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
+            {isClient && currentUser && <CreateTicketDialog allUsers={allUsers} onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
             <Button variant="outline" size="default" onClick={handleSyncEmails} disabled={isSyncing}>
                 <Mail className="mr-2 h-4 w-4" />
                 {isSyncing ? "Syncing..." : "Sync Emails"}
