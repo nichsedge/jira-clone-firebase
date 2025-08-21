@@ -154,7 +154,7 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
 
       // After client-side update, find the updated ticket and call the server action
       const updatedTicket = newTickets.find(t => t.id === activeId);
-      if (updatedTicket && updatedTicket.status !== originalActiveTicket.status) {
+      if (updatedTicket && (updatedTicket.status !== originalActiveTicket.status || JSON.stringify(updatedTicket) !== JSON.stringify(originalActiveTicket))) {
         startTransition(async () => {
           const result = await updateTicketAction({
             id: updatedTicket.id,
@@ -165,7 +165,7 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
             assigneeId: updatedTicket.assignee?.id,
             category: updatedTicket.category,
             projectId: updatedTicket.projectId,
-            reporter: updatedTicket.reporter,
+            reporter: updatedTicket.reporter, // Pass the full reporter object
           });
 
           if (result.error && !result.ticket) {

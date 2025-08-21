@@ -88,26 +88,33 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
 
   const { id, reporter, ...updateData } = validatedFields.data;
   
-  const existingTicket: Partial<Ticket> = {
-    // In a real app, you would fetch the existing ticket from the database.
-    // For this example, we're building it from the incoming data.
+  // In a real app, you would fetch the existing ticket from the database.
+  // For this example, we're simulating it. The client should pass the full reporter object.
+  if (!reporter || !reporter.id) {
+      return { error: 'Invalid reporter data provided for update.' };
+  }
+  
+  const updatedTicketData: Partial<Ticket> = {
+    ...updateData,
+    id,
+    assignee: allUsers.find(u => u.id === updateData.assigneeId),
     reporter: reporter as User,
-    createdAt: new Date(), // This should be the original creation date
+    updatedAt: new Date(),
   };
 
+  // In a real app, you would merge with data from DB. Here we assume client sends all necessary data.
   const updatedTicket: Ticket = {
-    ...existingTicket,
-    id,
-    title: updateData.title,
-    description: updateData.description,
-    status: updateData.status as TicketStatus,
-    priority: updateData.priority,
-    assignee: allUsers.find(u => u.id === updateData.assigneeId),
-    category: updateData.category,
-    projectId: updateData.projectId,
-    updatedAt: new Date(),
-    reporter: reporter as User,
-    createdAt: existingTicket.createdAt || new Date(),
+      id: updatedTicketData.id!,
+      title: updatedTicketData.title!,
+      description: updatedTicketData.description!,
+      status: updatedTicketData.status as TicketStatus,
+      priority: updatedTicketData.priority!,
+      assignee: updatedTicketData.assignee,
+      category: updatedTicketData.category,
+      projectId: updatedTicketData.projectId!,
+      updatedAt: updatedTicketData.updatedAt!,
+      reporter: updatedTicketData.reporter!,
+      createdAt: ticket?.createdAt || new Date(), // Should be original creation date
   };
 
   if (updatedTicket.status === 'Done' && updatedTicket.reporter.email) {
