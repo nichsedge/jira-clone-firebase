@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useTransition } from "react";
 import {
   DndContext,
   closestCorners,
@@ -14,12 +14,15 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { type Ticket, type TicketStatus } from "@/lib/types";
+import { type Ticket, type TicketStatus, type User } from "@/lib/types";
 import { TicketColumn } from "./ticket-column";
 import { TicketCard } from "./ticket-card";
 import { TicketDetailsDialog } from "./ticket-details-dialog";
 import { initialStatuses } from "@/data/statuses";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
+import { updateTicketAction } from "@/app/actions";
+import { useToast } from "@/hooks/use-toast";
+import { allUsers } from "@/data/tickets";
 
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
 
@@ -35,6 +38,8 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isClient, setIsClient] = useState(false)
   const [statuses, setStatuses] = useState<TicketStatus[]>([]);
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     setIsClient(true)
@@ -90,6 +95,9 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
     const overId = over.id as string;
   
     if (activeId === overId) return;
+
+    const originalActiveTicket = tickets.find((t) => t.id === activeId);
+    if (!originalActiveTicket) return;
   
     setTickets((prevTickets) => {
       const activeTicketIndex = prevTickets.findIndex((t) => t.id === activeId);
@@ -102,35 +110,35 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
       if (statuses.includes(overId as TicketStatus)) {
         const newStatus = overId as TicketStatus;
         if (activeTicket.status !== newStatus) {
-          activeTicket.status = newStatus;
-          // Move to the end of the new column's list of tickets
-          const otherTickets = newTickets.filter(t => t.id !== activeId);
-          const columnTickets = otherTickets.filter(t => t.status === newStatus);
-          const lastTicketInColumn = columnTickets[columnTickets.length - 1];
-          
-          let newIndex;
-          if (lastTicketInColumn) {
-             const lastTicketIndex = newTickets.findIndex(t => t.id === lastTicketInColumn.id);
-             newIndex = lastTicketIndex + 1;
-          } else {
-            // Find first ticket of next column
-            const columnIndex = statuses.indexOf(newStatus);
-            let nextColumnTicketIndex = -1;
-            for(let i = columnIndex + 1; i < statuses.length; i++) {
-                const foundTicket = newTickets.find(t => t.status === statuses[i]);
-                if (foundTicket) {
-                    nextColumnTicketIndex = newTickets.indexOf(foundTicket);
-                    break;
+            activeTicket.status = newStatus;
+            
+            // Move to the end of the new column's list of tickets
+            const otherTickets = newTickets.filter(t => t.id !== activeId);
+            const columnTickets = otherTickets.filter(t => t.status === newStatus);
+            const lastTicketInColumn = columnTickets[columnTickets.length - 1];
+            
+            let newIndex;
+            if (lastTicketInColumn) {
+                const lastTicketIndex = newTickets.findIndex(t => t.id === lastTicketInColumn.id);
+                newIndex = lastTicketIndex + 1;
+            } else {
+                const columnIndex = statuses.indexOf(newStatus);
+                let nextColumnTicketIndex = -1;
+                for(let i = columnIndex + 1; i < statuses.length; i++) {
+                    const foundTicket = newTickets.find(t => t.status === statuses[i]);
+                    if (foundTicket) {
+                        nextColumnTicketIndex = newTickets.indexOf(foundTicket);
+                        break;
+                    }
+                }
+                if (nextColumnTicketIndex !== -1) {
+                    newIndex = nextColumnTicketIndex;
+                } else {
+                    newIndex = newTickets.length;
                 }
             }
-             if (nextColumnTicketIndex !== -1) {
-                newIndex = nextColumnTicketIndex;
-            } else {
-                newIndex = newTickets.length;
-            }
-          }
-          
-          newTickets = arrayMove(newTickets, activeTicketIndex, newIndex > activeTicketIndex ? newIndex - 1 : newIndex);
+            
+            newTickets = arrayMove(newTickets, activeTicketIndex, newIndex > activeTicketIndex ? newIndex - 1 : newIndex);
         }
       }
       // Dropping on another ticket
@@ -143,6 +151,49 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
           newTickets = arrayMove(newTickets, activeTicketIndex, overTicketIndex);
         }
       }
+
+      // After client-side update, find the updated ticket and call the server action
+      const updatedTicket = newTickets.find(t => t.id === activeId);
+      if (updatedTicket && updatedTicket.status !== originalActiveTicket.status) {
+        startTransition(async () => {
+          const result = await updateTicketAction({
+            id: updatedTicket.id,
+            title: updatedTicket.title,
+            description: updatedTicket.description,
+            status: updatedTicket.status,
+            priority: updatedTicket.priority,
+            assigneeId: updatedTicket.assignee?.id,
+            category: updatedTicket.category,
+            projectId: updatedTicket.projectId,
+            reporter: updatedTicket.reporter,
+          });
+
+          if (result.error && !result.ticket) {
+            toast({
+              variant: "destructive",
+              title: "Uh oh! Something went wrong.",
+              description: result.error,
+            });
+            // Revert client-side change on failure
+            setTickets(prevTickets);
+          } else if (result.ticket) {
+              if (result.error) { // Ticket updated but email failed
+                toast({
+                  variant: "destructive",
+                  title: "Ticket Updated, Email Failed",
+                  description: result.error,
+                });
+              } else {
+                toast({
+                  title: "Ticket Updated!",
+                  description: `Ticket ${result.ticket.id} moved to ${result.ticket.status}.`,
+                });
+              }
+              onTicketUpdated(result.ticket);
+          }
+        });
+      }
+
       return newTickets;
     });
   };
