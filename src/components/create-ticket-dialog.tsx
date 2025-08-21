@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -68,10 +68,13 @@ export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: C
     },
   })
   
-  // Ensure reporterId is updated if currentUser changes, but only as a default
-  if (form.getValues('reporterId') !== currentUser.id) {
-    form.setValue('reporterId', currentUser.id);
-  }
+  useEffect(() => {
+    // When the current user changes, update the reporterId field in the form.
+    // This hook safely handles the side effect of updating form state.
+    if (currentUser && form.getValues('reporterId') !== currentUser.id) {
+        form.setValue('reporterId', currentUser.id, { shouldDirty: true });
+    }
+  }, [currentUser, form]);
 
 
   function onSubmit(values: z.infer<typeof formSchema>) {
