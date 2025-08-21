@@ -14,7 +14,7 @@ const createTicketSchema = z.object({
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
   projectId: z.string().min(1, "Project is required."),
-  reporterId: z.string().min(1, "Reporter is required"),
+  reporter: z.custom<User>(),
 });
 
 const updateTicketSchema = z.object({
@@ -44,16 +44,15 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
     };
   }
   
-  const { title, description, priority, assigneeId, projectId, reporterId } = validatedFields.data;
+  const { title, description, priority, assigneeId, projectId, reporter } = validatedFields.data;
+
+  if (!reporter || !reporter.id) {
+    return { error: 'Invalid reporter.' };
+  }
 
   try {
     const { category } = await categorizeTicket({ title, description });
     
-    const reporter = allUsers.find(u => u.id === reporterId);
-    if (!reporter) {
-        return { error: 'Invalid reporter.' };
-    }
-
     // In a real app, you would save to a database here.
     // For this example, we're returning the data to be handled client-side.
     const now = new Date();
@@ -67,7 +66,7 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
       createdAt: now,
       updatedAt: now,
       assignee: allUsers.find(u => u.id === assigneeId),
-      reporter, // The full reporter object, including email, is now assigned
+      reporter, // The full reporter object is now passed directly
       projectId,
     };
 

@@ -79,7 +79,18 @@ export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: C
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
-      const result = await createTicketAction(values)
+      const reporter = allUsers.find(u => u.id === values.reporterId);
+      if (!reporter) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Reporter",
+          description: "The selected reporter could not be found.",
+        });
+        return;
+      }
+      
+      const result = await createTicketAction({ ...values, reporter });
+
       if (result.error) {
         toast({
           variant: "destructive",
