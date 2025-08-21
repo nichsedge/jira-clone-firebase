@@ -1,12 +1,12 @@
 
 'use server';
 
-import { categorizeTicket } from '@/ai/flows/categorize-ticket';
-import { sendEmailNotification } from '@/ai/flows/send-email-notification';
-import { type Ticket, type TicketPriority, type User, TicketStatus, type SendEmailNotificationInput } from '@/lib/types';
+import { type Ticket, type TicketPriority, type User, TicketStatus } from '@/lib/types';
 import { allUsers } from '@/data/tickets';
 import { z } from 'zod';
+import { sendMail } from '@/services/email-sender';
 import { fetchUnreadEmails } from '@/services/email-service';
+
 
 const createTicketSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -52,29 +52,25 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
   }
 
   try {
-    const { category } = await categorizeTicket({ title, description });
-    
-    // In a real app, you would save to a database here.
-    // For this example, we're returning the data to be handled client-side.
     const now = new Date();
     const newTicket: Ticket = {
       id: `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
       title,
       description,
       status: 'To Do',
-      category,
+      category: 'General',
       priority: priority as TicketPriority,
       createdAt: now,
       updatedAt: now,
       assignee: allUsers.find(u => u.id === assigneeId),
-      reporter, // The full reporter object is now passed directly
+      reporter,
       projectId,
     };
 
     return { ticket: newTicket };
   } catch (error) {
     console.error(error);
-    return { error: 'Failed to create ticket with AI categorization.' };
+    return { error: 'Failed to create ticket.' };
   }
 }
 
@@ -89,8 +85,6 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
 
   const { id, reporter, createdAt, ...updateData } = validatedFields.data;
   
-  // In a real app, you would fetch the existing ticket from the database.
-  // For this example, we're simulating it. The client should pass the full reporter object.
   if (!reporter || !reporter.id) {
       return { error: 'Invalid reporter data provided for update.' };
   }
@@ -103,7 +97,6 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     updatedAt: new Date(),
   };
 
-  // In a real app, you would merge with data from DB. Here we assume client sends all necessary data.
   const updatedTicket: Ticket = {
       id: updatedTicketData.id!,
       title: updatedTicketData.title!,
@@ -115,20 +108,33 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
       projectId: updatedTicketData.projectId!,
       updatedAt: updatedTicketData.updatedAt!,
       reporter: updatedTicketData.reporter!,
-      createdAt: createdAt, // Use the passed-in creation date
+      createdAt: createdAt, 
   };
 
   if (updatedTicket.status === 'Done' && updatedTicket.reporter.email) {
       try {
-          const emailInput: SendEmailNotificationInput = {
-              ticketId: updatedTicket.id,
-              ticketTitle: updatedTicket.title,
-              reporterEmail: updatedTicket.reporter.email,
-          };
-          await sendEmailNotification(emailInput);
+           const subject = `Ticket Resolved: ${updatedTicket.id} - ${updatedTicket.title}`;
+            const textBody = `Hello,\n\nYour support ticket "${updatedTicket.title}" with ID ${updatedTicket.id} has been marked as resolved.\n\nThank you for using our support system.\n\nThe ProFlow Team`;
+            const htmlBody = `
+              <div style="font-family: sans-serif; line-height: 1.6;">
+                <h2>Ticket Resolved: ${updatedTicket.id}</h2>
+                <p>Hello,</p>
+                <p>Your support ticket "<strong>${updatedTicket.title}</strong>" has been marked as resolved.</p>
+                <p>If you feel the issue is not resolved, please reply to this email to reopen the ticket.</p>
+                <br/>
+                <p>Thank you,</p>
+                <p><strong>The ProFlow Team</strong></p>
+              </div>
+            `;
+
+            await sendMail({
+              to: updatedTicket.reporter.email,
+              subject: subject,
+              text: textBody,
+              html: htmlBody,
+            });
       } catch (emailError) {
           console.error("Failed to send email notification:", emailError);
-          // Still return the updated ticket, but include an error message about the email failure.
           return { ticket: updatedTicket, error: "Ticket updated, but failed to send email notification." };
       }
   }

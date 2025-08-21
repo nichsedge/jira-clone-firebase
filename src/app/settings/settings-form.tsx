@@ -135,7 +135,7 @@ export function SettingsForm({ imapUser }: SettingsFormProps) {
 
   const handleSyncEmails = async () => {
     startSyncTransition(async () => {
-      const result = await syncEmailsAction();
+      const result = await syncEmailsAction(allUsers);
       if (result.error) {
         toast({
           variant: "destructive",

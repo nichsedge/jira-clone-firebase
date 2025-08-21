@@ -224,10 +224,6 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
             {isClient && currentUser && <CreateTicketDialog allUsers={allUsers} onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
-            <Button variant="outline" size="default" onClick={handleSyncEmails} disabled={isSyncing}>
-                <Mail className="mr-2 h-4 w-4" />
-                {isSyncing ? "Syncing..." : "Sync Emails"}
-            </Button>
           </div>
           <div className="w-full flex-1 md:w-auto md:flex-initial flex justify-end">
               <form>
