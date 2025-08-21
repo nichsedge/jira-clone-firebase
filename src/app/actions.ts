@@ -2,6 +2,7 @@
 'use server';
 
 import { categorizeTicket } from '@/ai/flows/categorize-ticket';
+import { sendEmailNotification } from '@/ai/flows/send-email-notification';
 import { type Ticket, type TicketPriority, type User, TicketStatus } from '@/lib/types';
 import { allUsers } from '@/data/tickets';
 import { z } from 'zod';
@@ -87,6 +88,7 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
   // In a real app, you would update the database here.
   // For this example, we're just returning the updated data.
   const { id, ...updateData } = validatedFields.data;
+  const reporter = allUsers[0]; // TODO: This should be dynamic based on the actual ticket's reporter
   
   // This is a simplified update. In a real app, you'd fetch the existing ticket
   // and merge the fields.
@@ -102,8 +104,23 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     // These would not be updated like this in a real scenario
     createdAt: new Date(), 
     updatedAt: new Date(),
-    reporter: allUsers[0], // Assuming a default/mocked reporter
+    reporter,
   };
+
+  if (updatedTicket.status === 'Done') {
+      try {
+          await sendEmailNotification({
+              ticketId: updatedTicket.id,
+              ticketTitle: updatedTicket.title,
+              reporterEmail: 'sim.adams71@ethereal.email', // This should be dynamic
+          });
+      } catch (emailError) {
+          console.error("Failed to send email notification:", emailError);
+          // We don't block the ticket update, but we can return a partial error/warning
+          return { ticket: updatedTicket, error: "Ticket updated, but failed to send email notification." };
+      }
+  }
+
 
   return { ticket: updatedTicket };
 }
