@@ -8,10 +8,10 @@ export type { ParsedMail };
 
 const imapConfig: Imap.Config = {
     user: process.env.IMAP_USER!,
-    password: process.env.IMAP_PASSWORD!,
+    password: process.env.IMAP_PASS!,
     host: process.env.IMAP_HOST!,
     port: parseInt(process.env.IMAP_PORT || '993', 10),
-    tls: true,
+    tls: process.env.IMAP_USE_TLS === 'true',
     tlsOptions: {
         rejectUnauthorized: false
     }
