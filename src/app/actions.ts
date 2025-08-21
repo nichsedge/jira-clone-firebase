@@ -107,12 +107,12 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     reporter,
   };
 
-  if (updatedTicket.status === 'Done') {
+  if (updatedTicket.status === 'Done' && updatedTicket.reporter.email) {
       try {
           await sendEmailNotification({
               ticketId: updatedTicket.id,
               ticketTitle: updatedTicket.title,
-              reporterEmail: 'sim.adams71@ethereal.email', // This should be dynamic
+              reporterEmail: updatedTicket.reporter.email,
           });
       } catch (emailError) {
           console.error("Failed to send email notification:", emailError);
@@ -154,6 +154,8 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
             const title = email.subject?.replace("[TICKET]", "").trim() ?? "New Ticket";
             const description = email.text ?? "No description provided.";
             
+            const fromEmail = email.from?.value[0]?.address;
+
             const now = new Date();
             const newTicket: Ticket = {
               id: `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -164,7 +166,7 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
               priority: 'Medium', // Default priority
               createdAt: now,
               updatedAt: now,
-              reporter: { id: 'USER-EMAIL', name: email.from?.text ?? "Email User", avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=E' },
+              reporter: { id: 'USER-EMAIL', name: email.from?.text ?? "Email User", avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=E', email: fromEmail },
               projectId: 'PROJ-1', // Default project
             };
             newTickets.push(newTicket);

@@ -2,12 +2,12 @@
 import { type Ticket, type User, type Project } from '@/lib/types';
 
 export const allUsers: User[] = [
-  { id: 'USER-1', name: 'Alice Johnson', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' },
-  { id: 'USER-2', name: 'Bob Williams', avatarUrl: 'https://placehold.co/32x32/D1FAE5/065F46/png?text=B' },
-  { id: 'USER-3', name: 'Charlie Brown', avatarUrl: 'https://placehold.co/32x32/FEF3C7/92400E/png?text=C' },
-  { id: 'USER-4', name: 'Diana Miller', avatarUrl: 'https://placehold.co/32x32/FEE2E2/991B1B/png?text=D' },
-  { id: 'USER-5', name: 'Ethan Davis', avatarUrl: 'https://placehold.co/32x32/DBEAFE/1E40AF/png?text=E' },
-  { id: 'USER-6', name: 'Fiona Garcia', avatarUrl: 'https://placehold.co/32x32/FCE7F3/831843/png?text=F' },
+  { id: 'USER-1', name: 'Alice Johnson', email: 'alice.johnson.demo@example.com', avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A' },
+  { id: 'USER-2', name: 'Bob Williams', email: 'bob.williams.demo@example.com', avatarUrl: 'https://placehold.co/32x32/D1FAE5/065F46/png?text=B' },
+  { id: 'USER-3', name: 'Charlie Brown', email: 'charlie.brown.demo@example.com', avatarUrl: 'https://placehold.co/32x32/FEF3C7/92400E/png?text=C' },
+  { id: 'USER-4', name: 'Diana Miller', email: 'diana.miller.demo@example.com', avatarUrl: 'https://placehold.co/32x32/FEE2E2/991B1B/png?text=D' },
+  { id: 'USER-5', name: 'Ethan Davis', email: 'ethan.davis.demo@example.com', avatarUrl: 'https://placehold.co/32x32/DBEAFE/1E40AF/png?text=E' },
+  { id: 'USER-6', name: 'Fiona Garcia', email: 'fiona.garcia.demo@example.com', avatarUrl: 'https://placehold.co/32x32/FCE7F3/831843/png?text=F' },
 ];
 
 export const initialProjects: Project[] = [
