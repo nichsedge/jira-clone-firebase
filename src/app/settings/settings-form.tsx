@@ -1,8 +1,24 @@
 
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import Link from "next/link";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Home,
   Ticket as TicketIcon,
@@ -14,6 +30,7 @@ import {
   Trash2,
   Plus,
   Workflow,
+  GripVertical,
 } from "lucide-react";
 
 import {
@@ -40,7 +57,6 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 
-import { syncEmailsAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 
 import { UserNav } from "@/components/user-nav";
@@ -51,13 +67,46 @@ import { Ticket, TicketStatus, User } from "@/lib/types";
 import { initialStatuses } from "@/data/statuses";
 import { allUsers as initialAllUsers } from "@/data/tickets";
 
-const TICKETS_STORAGE_KEY = 'proflow-tickets';
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 const USERS_STORAGE_KEY = 'proflow-users';
 
 interface SettingsFormProps {
     imapUser: string;
+}
+
+interface SortableStatusItemProps {
+    id: string;
+    onDelete: (id: string) => void;
+}
+
+function SortableStatusItem({ id, onDelete }: SortableStatusItemProps) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({id});
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+    };
+
+    return (
+        <div ref={setNodeRef} style={style} className="flex items-center justify-between gap-2 bg-background p-2 rounded-md border">
+            <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" {...attributes} {...listeners} className="cursor-grab h-7 w-7">
+                    <GripVertical className="w-4 h-4 text-muted-foreground" />
+                </Button>
+                <span className="font-medium text-sm">{id}</span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(id)}>
+                <Trash2 className="w-4 h-4 text-muted-foreground" />
+            </Button>
+        </div>
+    );
 }
 
 export function SettingsForm({ imapUser }: SettingsFormProps) {
@@ -70,12 +119,25 @@ export function SettingsForm({ imapUser }: SettingsFormProps) {
   const [isClient, setIsClient] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor)
+  );
 
   useEffect(() => {
     setIsClient(true);
     const storedStatuses = localStorage.getItem(STATUSES_STORAGE_KEY);
     if (storedStatuses) {
-      setStatuses(JSON.parse(storedStatuses));
+      try {
+        const parsedStatuses = JSON.parse(storedStatuses);
+        if (Array.isArray(parsedStatuses)) {
+            setStatuses(parsedStatuses);
+        } else {
+            setStatuses(initialStatuses);
+        }
+      } catch {
+        setStatuses(initialStatuses);
+      }
     } else {
       setStatuses(initialStatuses);
     }
@@ -125,7 +187,6 @@ export function SettingsForm({ imapUser }: SettingsFormProps) {
         });
         return;
     }
-    // You might want to add logic here to handle tickets with the deleted status
     setStatuses(statuses.filter(status => status !== statusToDelete));
      toast({
         title: "Status removed!",
@@ -133,30 +194,18 @@ export function SettingsForm({ imapUser }: SettingsFormProps) {
       });
   };
 
-  const handleSyncEmails = async () => {
-    startSyncTransition(async () => {
-      const result = await syncEmailsAction(allUsers);
-      if (result.error) {
-        toast({
-          variant: "destructive",
-          title: "Uh oh! Something went wrong.",
-          description: result.error,
-        });
-      } else {
-        toast({
-          title: "Sync Complete!",
-          description: `${result.count} new ticket(s) created from emails.`,
-        });
-        if (result.count > 0 && result.tickets) {
-            const storedTickets = localStorage.getItem(TICKETS_STORAGE_KEY);
-            const currentTickets = storedTickets ? JSON.parse(storedTickets) : [];
-            const newTickets = [...result.tickets, ...currentTickets];
-            localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(newTickets));
-            router.push('/');
-        }
-      }
-    });
-  };
+  function handleDragEnd(event: DragEndEvent) {
+    const {active, over} = event;
+    
+    if (active.id !== over?.id) {
+      setStatuses((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over!.id as string);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  }
+
 
   return (
     <SidebarProvider>
@@ -250,11 +299,11 @@ export function SettingsForm({ imapUser }: SettingsFormProps) {
                         <div className="flex items-center space-x-4">
                         <div className="flex-1">
                             <p className="text-sm font-medium">{imapUser}</p>
-                            <p className="text-sm text-muted-foreground">Connected via IMAP</p>
+                            <p className="text-sm text-muted-foreground">This feature is disabled.</p>
                         </div>
-                        <Button onClick={handleSyncEmails} disabled={isSyncing}>
+                        <Button disabled={true}>
                             <Mail className="mr-2 h-4 w-4" />
-                            {isSyncing ? "Syncing..." : "Sync Emails"}
+                            Sync Emails
                         </Button>
                         </div>
                     </CardContent>
@@ -263,19 +312,22 @@ export function SettingsForm({ imapUser }: SettingsFormProps) {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Workflow /> Workflow Statuses</CardTitle>
                         <CardDescription>
-                        Customize the columns on your ticket board.
+                        Customize and reorder the columns on your ticket board.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-2">
-                            {isClient && statuses.map(status => (
-                                <div key={status} className="flex items-center justify-between gap-2">
-                                    <span className="font-medium text-sm">{status}</span>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteStatus(status)}>
-                                        <Trash2 className="w-4 h-4 text-muted-foreground" />
-                                    </Button>
-                                </div>
-                            ))}
+                             {isClient && (
+                                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                    <SortableContext items={statuses} strategy={verticalListSortingStrategy}>
+                                        <div className="space-y-2">
+                                            {statuses.map(status => (
+                                                <SortableStatusItem key={status} id={status} onDelete={handleDeleteStatus} />
+                                            ))}
+                                        </div>
+                                    </SortableContext>
+                                </DndContext>
+                            )}
                         </div>
                     </CardContent>
                     <CardFooter className="border-t pt-6">
