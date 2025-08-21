@@ -17,10 +17,6 @@ const nextConfig = {
       },
     ],
   },
-  serverActions: {
-    bodySizeLimit: '2mb',
-    serverActionsTimeout: 120,
-  },
 };
 
 module.exports = nextConfig;
