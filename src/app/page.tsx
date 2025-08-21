@@ -85,6 +85,12 @@ export default function Dashboard() {
       localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
     }
   }, [tickets, isClient]);
+  
+  useEffect(() => {
+    if (isClient) {
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(allUsers));
+    }
+   }, [allUsers, isClient]);
 
    useEffect(() => {
     if (isClient && currentUser) {
@@ -117,7 +123,7 @@ export default function Dashboard() {
 
   const handleSyncEmails = async () => {
     startSyncTransition(async () => {
-      const result = await syncEmailsAction();
+      const result = await syncEmailsAction(allUsers);
       if (result.error) {
         toast({
           variant: "destructive",
@@ -125,12 +131,24 @@ export default function Dashboard() {
           description: result.error,
         });
       } else {
+        const ticketCount = result.count || 0;
+        const userCount = result.newUsers?.length || 0;
+
+        let description = `${ticketCount} new ticket(s) created.`;
+        if (userCount > 0) {
+            description += ` ${userCount} new user(s) created.`;
+        }
+
         toast({
           title: "Sync Complete!",
-          description: `${result.count} new ticket(s) created from emails.`,
+          description: description,
         });
-        if (result.count > 0 && result.tickets) {
+        
+        if (ticketCount > 0 && result.tickets) {
            setTickets((prevTickets) => [...result.tickets!, ...prevTickets]);
+        }
+        if (userCount > 0 && result.newUsers) {
+            setAllUsers((prevUsers) => [...prevUsers, ...result.newUsers!]);
         }
       }
     });

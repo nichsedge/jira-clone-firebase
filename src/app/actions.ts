@@ -140,16 +140,18 @@ export async function deleteTicketAction(values: z.infer<typeof deleteTicketSche
 }
 
 
-export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: string, count: number }> {
+export async function syncEmailsAction(existingUsers: User[]): Promise<{ tickets?: Ticket[], newUsers?: User[], error?: string, count: number }> {
     try {
         const emails = await fetchUnreadEmails();
         const ticketEmails = emails.filter(email => email.subject?.includes('[TICKET]'));
 
         if (ticketEmails.length === 0) {
-            return { tickets: [], count: 0 };
+            return { tickets: [], newUsers: [], count: 0 };
         }
 
         const newTickets: Ticket[] = [];
+        const newUsers: User[] = [];
+        const mutableUsers = [...existingUsers];
 
         for (const email of ticketEmails) {
             const title = email.subject?.replace("[TICKET]", "").trim() || "New Ticket from Email";
@@ -161,16 +163,22 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
                 continue;
             }
 
-            const fromName = email.from?.value[0]?.name || fromEmail.split('@')[0] || "Email User";
+            let reporter = mutableUsers.find(u => u.email === fromEmail);
+
+            if (!reporter) {
+                const fromName = email.from?.value[0]?.name || fromEmail.split('@')[0] || "Email User";
+                const newUserId = `USER-${Math.floor(1000 + Math.random() * 9000)}`;
+                reporter = {
+                    id: newUserId,
+                    name: fromName,
+                    email: fromEmail,
+                    avatarUrl: `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${fromName.charAt(0).toUpperCase()}`,
+                };
+                newUsers.push(reporter);
+                mutableUsers.push(reporter); // Add to the list for subsequent checks in the same batch
+            }
 
             const now = new Date();
-            
-            const reporter: User = { 
-                id: `user-${fromEmail}`, 
-                name: fromName, 
-                avatarUrl: `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${fromName.charAt(0).toUpperCase()}`, 
-                email: fromEmail,
-            };
 
             const newTicket: Ticket = {
               id: `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -187,7 +195,7 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
             newTickets.push(newTicket);
         }
 
-        return { tickets: newTickets, count: newTickets.length };
+        return { tickets: newTickets, newUsers: newUsers, count: newTickets.length };
     } catch (error) {
         console.error('Email sync failed:', error);
         return { error: 'Failed to sync emails.', count: 0 };
