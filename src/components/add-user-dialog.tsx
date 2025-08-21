@@ -59,11 +59,12 @@ export function AddUserDialog({ isOpen, onOpenChange, userToEdit, onUserAdded, o
   }, [userToEdit, form, isOpen]);
 
   const name = form.watch("name");
-  const avatarUrl = name ? `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${name.charAt(0).toUpperCase()}` : '';
+  const avatarUrl = name ? `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${name.charAt(0).toUpperCase()}` : null;
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(() => {
-        const userData = { ...values, avatarUrl };
+        const finalAvatarUrl = values.name ? `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${values.name.charAt(0).toUpperCase()}` : '';
+        const userData = { ...values, avatarUrl: finalAvatarUrl };
       if (userToEdit) {
         onUserUpdated({ ...userToEdit, ...userData });
       } else {
@@ -86,7 +87,7 @@ export function AddUserDialog({ isOpen, onOpenChange, userToEdit, onUserAdded, o
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="flex items-center gap-4">
                 <Avatar className="h-16 w-16">
-                    <AvatarImage src={avatarUrl} alt={name} data-ai-hint="person letter" />
+                    {avatarUrl && <AvatarImage src={avatarUrl} alt={name} data-ai-hint="person letter" />}
                     <AvatarFallback>{name?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                  <FormField
