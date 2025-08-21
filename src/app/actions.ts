@@ -67,7 +67,7 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
       createdAt: now,
       updatedAt: now,
       assignee: allUsers.find(u => u.id === assigneeId),
-      reporter,
+      reporter, // The full reporter object, including email, is now assigned
       projectId,
     };
 
