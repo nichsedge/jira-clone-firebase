@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useTransition } from "react";
 import Link from "next/link";
 import {
   Home,
@@ -10,6 +10,7 @@ import {
   Settings,
   Search,
   FolderKanban,
+  Mail,
 } from "lucide-react";
 
 import {
@@ -26,6 +27,8 @@ import {
 } from "@/components/ui/sidebar";
 
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 import { type Ticket, type User } from "@/lib/types";
 import { initialTickets, allUsers as initialAllUsers } from "@/data/tickets";
@@ -34,6 +37,7 @@ import { CreateTicketDialog } from "@/components/create-ticket-dialog";
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
+import { syncEmailsAction } from "@/app/actions";
 
 const TICKETS_STORAGE_KEY = 'proflow-tickets';
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
@@ -44,6 +48,8 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [allUsers, setAllUsers] = useState<User[]>(initialAllUsers);
   const [currentUser, setCurrentUser] = useState<User>(initialAllUsers[0]);
+  const [isSyncing, startSyncTransition] = useTransition();
+  const { toast } = useToast();
 
 
   useEffect(() => {
@@ -100,6 +106,27 @@ export default function Dashboard() {
 
   const handleTicketDeleted = (deletedTicketId: string) => {
     setTickets((prevTickets) => prevTickets.filter(ticket => ticket.id !== deletedTicketId));
+  };
+
+  const handleSyncEmails = async () => {
+    startSyncTransition(async () => {
+      const result = await syncEmailsAction();
+      if (result.error) {
+        toast({
+          variant: "destructive",
+          title: "Uh oh! Something went wrong.",
+          description: result.error,
+        });
+      } else {
+        toast({
+          title: "Sync Complete!",
+          description: `${result.count} new ticket(s) created from emails.`,
+        });
+        if (result.count > 0 && result.tickets) {
+           setTickets((prevTickets) => [...result.tickets!, ...prevTickets]);
+        }
+      }
+    });
   };
 
 
@@ -172,8 +199,12 @@ export default function Dashboard() {
            <div className="flex items-center gap-4">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
             {isClient && <CreateTicketDialog onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
+            <Button variant="outline" size="default" onClick={handleSyncEmails} disabled={isSyncing}>
+                <Mail className="mr-2 h-4 w-4" />
+                {isSyncing ? "Syncing..." : "Sync Emails"}
+            </Button>
           </div>
-          <div className="w-full flex-1 md:w-auto md:flex-initial">
+          <div className="w-full flex-1 md:w-auto md:flex-initial flex justify-end">
               <form>
               <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
