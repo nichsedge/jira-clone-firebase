@@ -66,10 +66,13 @@ import { useRouter } from "next/navigation";
 import { Ticket, TicketStatus, User } from "@/lib/types";
 import { initialStatuses } from "@/data/statuses";
 import { allUsers as initialAllUsers } from "@/data/tickets";
+import { syncEmailsAction } from "@/app/actions";
 
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 const USERS_STORAGE_KEY = 'proflow-users';
+const TICKETS_STORAGE_KEY = 'proflow-tickets';
+
 
 interface SettingsFormProps {
     imapUser: string;
@@ -206,6 +209,52 @@ export function SettingsForm({ imapUser }: SettingsFormProps) {
     }
   }
 
+  const handleSyncEmails = async () => {
+    startSyncTransition(async () => {
+        if (imapUser === "Not Configured") {
+            toast({
+                variant: "destructive",
+                title: "Email Sync Not Configured",
+                description: "Please set your IMAP credentials in the .env file to sync emails.",
+            });
+            return;
+        }
+
+        const result = await syncEmailsAction(allUsers);
+        if (result.error) {
+            toast({
+                variant: "destructive",
+                title: "Uh oh! Something went wrong.",
+                description: result.error,
+            });
+        } else {
+            const ticketCount = result.count || 0;
+            const userCount = result.newUsers?.length || 0;
+
+            let description = `${ticketCount} new ticket(s) created.`;
+            if (userCount > 0) {
+                description += ` ${userCount} new user(s) created.`;
+            }
+
+            toast({
+                title: "Sync Complete!",
+                description: description,
+            });
+            
+            if (result.tickets && result.tickets.length > 0) {
+                const storedTicketsRaw = localStorage.getItem(TICKETS_STORAGE_KEY);
+                const storedTickets = storedTicketsRaw ? JSON.parse(storedTicketsRaw) : [];
+                const updatedTickets = [...result.tickets, ...storedTickets];
+                localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(updatedTickets));
+            }
+            if (result.newUsers && result.newUsers.length > 0) {
+                const updatedUsers = [...allUsers, ...result.newUsers];
+                setAllUsers(updatedUsers);
+            }
+        }
+    });
+};
+
 
   return (
     <SidebarProvider>
@@ -299,11 +348,25 @@ export function SettingsForm({ imapUser }: SettingsFormProps) {
                         <div className="flex items-center space-x-4">
                         <div className="flex-1">
                             <p className="text-sm font-medium">{imapUser}</p>
-                            <p className="text-sm text-muted-foreground">This feature is disabled.</p>
+                            <p className="text-sm text-muted-foreground">
+                                {imapUser === "Not Configured" ? "This feature is disabled." : "Ready to sync."}
+                            </p>
                         </div>
-                        <Button disabled={true}>
-                            <Mail className="mr-2 h-4 w-4" />
-                            Sync Emails
+                        <Button onClick={handleSyncEmails} disabled={isSyncing}>
+                            {isSyncing ? (
+                                <>
+                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Syncing...
+                                </>
+                            ) : (
+                                <>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Sync Emails
+                                </>
+                            )}
                         </Button>
                         </div>
                     </CardContent>
