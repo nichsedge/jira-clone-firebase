@@ -166,6 +166,7 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
             category: updatedTicket.category,
             projectId: updatedTicket.projectId,
             reporter: updatedTicket.reporter, // Pass the full reporter object
+            createdAt: updatedTicket.createdAt, // Pass the original creation date
           });
 
           if (result.error && !result.ticket) {

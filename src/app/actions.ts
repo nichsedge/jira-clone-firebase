@@ -3,7 +3,7 @@
 
 import { categorizeTicket } from '@/ai/flows/categorize-ticket';
 import { sendEmailNotification } from '@/ai/flows/send-email-notification';
-import { type Ticket, type TicketPriority, type User, TicketStatus } from '@/lib/types';
+import { type Ticket, type TicketPriority, type User, TicketStatus, type SendEmailNotificationInput } from '@/lib/types';
 import { allUsers } from '@/data/tickets';
 import { z } from 'zod';
 import { fetchUnreadEmails } from '@/services/email-service';
@@ -27,6 +27,7 @@ const updateTicketSchema = z.object({
   category: z.string().optional(),
   projectId: z.string().min(1, "Project is required."),
   reporter: z.any(),
+  createdAt: z.date(),
 });
 
 
@@ -86,7 +87,7 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     };
   }
 
-  const { id, reporter, ...updateData } = validatedFields.data;
+  const { id, reporter, createdAt, ...updateData } = validatedFields.data;
   
   // In a real app, you would fetch the existing ticket from the database.
   // For this example, we're simulating it. The client should pass the full reporter object.
@@ -114,18 +115,20 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
       projectId: updatedTicketData.projectId!,
       updatedAt: updatedTicketData.updatedAt!,
       reporter: updatedTicketData.reporter!,
-      createdAt: ticket?.createdAt || new Date(), // Should be original creation date
+      createdAt: createdAt, // Use the passed-in creation date
   };
 
   if (updatedTicket.status === 'Done' && updatedTicket.reporter.email) {
       try {
-          await sendEmailNotification({
+          const emailInput: SendEmailNotificationInput = {
               ticketId: updatedTicket.id,
               ticketTitle: updatedTicket.title,
               reporterEmail: updatedTicket.reporter.email,
-          });
+          };
+          await sendEmailNotification(emailInput);
       } catch (emailError) {
           console.error("Failed to send email notification:", emailError);
+          // Still return the updated ticket, but include an error message about the email failure.
           return { ticket: updatedTicket, error: "Ticket updated, but failed to send email notification." };
       }
   }

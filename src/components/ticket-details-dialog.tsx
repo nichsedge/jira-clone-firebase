@@ -124,7 +124,12 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     if (!ticket) return;
 
     startTransition(async () => {
-       const result = await updateTicketAction({ id: ticket.id, ...values, reporter: ticket.reporter });
+       const result = await updateTicketAction({ 
+        id: ticket.id, 
+        ...values, 
+        reporter: ticket.reporter,
+        createdAt: ticket.createdAt,
+       });
       if (result.error) {
         toast({
           variant: "destructive",
