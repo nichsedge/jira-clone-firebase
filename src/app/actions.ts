@@ -173,7 +173,7 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
             };
 
             const newTicket: Ticket = {
-              id: email.messageId || `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
+              id: `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
               title,
               description,
               status: 'To Do',
