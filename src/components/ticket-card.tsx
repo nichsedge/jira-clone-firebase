@@ -6,11 +6,14 @@ import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { type Ticket } from "@/lib/types";
+import { type Ticket, type Project } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { GripVertical } from "lucide-react";
+import { useState, useEffect } from "react";
 import { initialProjects } from "@/data/tickets";
+
+const PROJECTS_STORAGE_KEY = 'proflow-projects';
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -28,6 +31,17 @@ export function TicketCard({ ticket, onClick, isOverlay }: TicketCardProps) {
     isDragging,
   } = useSortable({ id: ticket.id, data: { type: "Ticket", ticket } });
 
+  const [projects, setProjects] = useState<Project[]>([]);
+  
+  useEffect(() => {
+    const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
+    if (storedProjects) {
+        setProjects(JSON.parse(storedProjects));
+    } else {
+        setProjects(initialProjects);
+    }
+  }, []);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -41,7 +55,7 @@ export function TicketCard({ ticket, onClick, isOverlay }: TicketCardProps) {
     onClick?.(ticket);
   };
 
-  const project = initialProjects.find(p => p.id === ticket.projectId);
+  const project = projects.find(p => p.id === ticket.projectId);
   
   const Component = (
      <div

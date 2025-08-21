@@ -48,7 +48,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { type Ticket, type User, type TicketStatus } from "@/lib/types";
+import { type Ticket, type User, type TicketStatus, type Project } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
 import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2, FolderKanban, MessageSquare } from 'lucide-react';
 import { cn } from "@/lib/utils";
@@ -56,6 +56,7 @@ import { allUsers, initialProjects } from "@/data/tickets";
 import { initialStatuses } from "@/data/statuses";
 
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
+const PROJECTS_STORAGE_KEY = 'proflow-projects';
 
 interface TicketDetailsDialogProps {
   ticket: Ticket | null;
@@ -81,13 +82,18 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
   const [isDeleting, startDeleteTransition] = useTransition();
   const { toast } = useToast();
   const [statuses, setStatuses] = useState<TicketStatus[]>(initialStatuses);
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
 
   useEffect(() => {
     const storedStatuses = localStorage.getItem(STATUSES_STORAGE_KEY);
     if (storedStatuses) {
       setStatuses(JSON.parse(storedStatuses));
     }
-  }, []);
+     const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
+    if (storedProjects) {
+        setProjects(JSON.parse(storedProjects));
+    }
+  }, [isOpen]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -105,14 +111,14 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
         projectId: ticket.projectId,
       });
     }
-  }, [ticket, form]);
+  }, [ticket, form, isEditing]); // Rerun when editing starts
 
   if (!ticket) {
     return null;
   }
 
   const assignee = allUsers.find(u => u.id === ticket.assignee?.id);
-  const project = initialProjects.find(p => p.id === ticket.projectId);
+  const project = projects.find(p => p.id === ticket.projectId);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (!ticket) return;
@@ -289,7 +295,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Assignee</FormLabel>
-                        <Select onValuechange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select an assignee" />
@@ -333,7 +339,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {initialProjects.map(p => (
+                          {projects.map(p => (
                             <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                           ))}
                         </SelectContent>

@@ -10,6 +10,10 @@ import {
   Settings,
   ChevronLeft,
   FolderKanban,
+  PlusCircle,
+  MoreHorizontal,
+  Pencil,
+  Trash2
 } from "lucide-react";
 
 import {
@@ -21,32 +25,55 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
-  SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar";
-
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { initialProjects, allUsers as initialAllUsers } from "@/data/tickets";
-import { User } from "@/lib/types";
+import { User, Project } from "@/lib/types";
+import { AddProjectDialog } from "@/components/add-project-dialog";
+import { toast } from "@/hooks/use-toast";
 
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 const USERS_STORAGE_KEY = 'proflow-users';
+const PROJECTS_STORAGE_KEY = 'proflow-projects';
 
 export default function ProjectsPage() {
   const [isClient, setIsClient] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState<Project | undefined>(undefined);
+  const [projectToDelete, setProjectToDelete] = useState<Project | undefined>(undefined);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -61,6 +88,13 @@ export default function ProjectsPage() {
     } else if (users.length > 0) {
       setCurrentUser(users[0]);
     }
+    
+    const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
+    if (storedProjects) {
+        setProjects(JSON.parse(storedProjects));
+    } else {
+        setProjects(initialProjects);
+    }
   }, []);
 
   useEffect(() => {
@@ -68,6 +102,50 @@ export default function ProjectsPage() {
       localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
     }
   }, [currentUser, isClient]);
+
+  useEffect(() => {
+    if (isClient) {
+        localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
+    }
+  }, [projects, isClient]);
+
+  const handleProjectAdded = (newProject: Omit<Project, 'id'>) => {
+    const newId = `PROJ-${Math.floor(1000 + Math.random() * 9000)}`;
+    setProjects(prev => [...prev, { ...newProject, id: newId }]);
+    toast({
+        title: "Project created",
+        description: `Project ${newProject.name} has been successfully created.`,
+    });
+  };
+
+  const handleProjectUpdated = (updatedProject: Project) => {
+    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+     toast({
+        title: "Project updated",
+        description: `Project ${updatedProject.name} has been successfully updated.`,
+    });
+  };
+
+  const handleProjectDeleted = () => {
+    if (!projectToDelete) return;
+    setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
+    toast({
+        title: "Project deleted",
+        description: `Project ${projectToDelete.name} has been deleted.`,
+    });
+    setProjectToDelete(undefined);
+  };
+  
+  const openEditDialog = (project: Project) => {
+    setProjectToEdit(project);
+    setIsAddProjectDialogOpen(true);
+  }
+
+  const openAddDialog = () => {
+    setProjectToEdit(undefined);
+    setIsAddProjectDialogOpen(true);
+  }
+
 
   return (
     <SidebarProvider>
@@ -135,35 +213,72 @@ export default function ProjectsPage() {
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <div className="w-full flex-1">
-             <div
-              className="flex items-center gap-2 text-lg font-semibold"
-            >
-              <Button variant="outline" size="icon" className="h-8 w-8 as-child">
-                <Link href="/">
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="sr-only">Back</span>
-                </Link>
-              </Button>
-              <span className="font-semibold text-lg">Projects</span>
-            </div>
+          <div className="flex-1">
+             <h1 className="font-semibold text-lg">Projects</h1>
           </div>
+          <Button onClick={openAddDialog}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Project
+          </Button>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {initialProjects.map(project => (
+            {isClient && projects.map(project => (
                 <Card key={project.id}>
-                    <CardHeader>
-                        <CardTitle>{project.name}</CardTitle>
-                        <CardDescription>{project.description}</CardDescription>
+                    <CardHeader className="flex flex-row items-start justify-between">
+                        <div>
+                            <CardTitle>{project.name}</CardTitle>
+                            <CardDescription>{project.id}</CardDescription>
+                        </div>
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Actions</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onSelect={() => openEditDialog(project)}>
+                                    <Pencil className="mr-2 h-4 w-4" /> Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setProjectToDelete(project)} className="text-red-600">
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </CardHeader>
                     <CardContent>
-                        {/* We can add more project details here later */}
+                        <p className="text-sm text-muted-foreground">{project.description}</p>
                     </CardContent>
                 </Card>
             ))}
           </div>
         </main>
+        {isClient && (
+            <AddProjectDialog
+                isOpen={isAddProjectDialogOpen}
+                onOpenChange={setIsAddProjectDialogOpen}
+                projectToEdit={projectToEdit}
+                onProjectAdded={handleProjectAdded}
+                onProjectUpdated={handleProjectUpdated}
+            />
+        )}
+        <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(undefined)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the project <span className="font-semibold">{projectToDelete?.name}</span>. Any associated tickets will not be deleted but will no longer be linked to this project.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleProjectDeleted}>
+                    Delete
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -34,9 +34,10 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { type Ticket, type User, type TicketPriority } from "@/lib/types"
+import { type Ticket, type User, type TicketPriority, type Project } from "@/lib/types"
 import { PlusCircle } from "lucide-react"
-import { initialProjects } from "@/data/tickets"
+
+const PROJECTS_STORAGE_KEY = 'proflow-projects';
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
@@ -56,6 +57,14 @@ type CreateTicketDialogProps = {
 export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: CreateTicketDialogProps) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useEffect(() => {
+    const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
+    if (storedProjects) {
+      setProjects(JSON.parse(storedProjects));
+    }
+  }, [open]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -63,7 +72,7 @@ export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: C
       title: "",
       description: "",
       priority: 'Medium',
-      projectId: initialProjects[0]?.id,
+      projectId: projects[0]?.id,
       reporterId: currentUser.id,
     },
   })
@@ -75,6 +84,12 @@ export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: C
         form.setValue('reporterId', currentUser.id, { shouldDirty: true });
     }
   }, [currentUser, form]);
+
+  useEffect(() => {
+      if (projects.length > 0 && !form.getValues('projectId')) {
+          form.setValue('projectId', projects[0].id);
+      }
+  }, [projects, form]);
 
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -108,7 +123,7 @@ export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: C
             title: "",
             description: "",
             priority: 'Medium',
-            projectId: initialProjects[0]?.id,
+            projectId: projects[0]?.id,
             reporterId: currentUser.id,
         })
       }
@@ -158,7 +173,7 @@ export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: C
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {initialProjects.map(project => (
+                      {projects.map(project => (
                         <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                       ))}
                     </SelectContent>

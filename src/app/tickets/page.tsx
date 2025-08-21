@@ -36,19 +36,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
-import { type Ticket, type User } from "@/lib/types";
+import { type Ticket, type User, type Project } from "@/lib/types";
 import { initialTickets, initialProjects, allUsers as initialAllUsers } from "@/data/tickets";
 import { cn } from "@/lib/utils";
 
 const TICKETS_STORAGE_KEY = 'proflow-tickets';
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 const USERS_STORAGE_KEY = 'proflow-users';
+const PROJECTS_STORAGE_KEY = 'proflow-projects';
 
 export default function TicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
+  const [projects, setProjects] = useState<Project[]>([]);
+
 
   useEffect(() => {
     setIsClient(true);
@@ -73,6 +76,13 @@ export default function TicketsPage() {
       setCurrentUser(JSON.parse(storedUser));
     } else if (users.length > 0) {
       setCurrentUser(users[0]);
+    }
+    
+    const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
+    if (storedProjects) {
+        setProjects(JSON.parse(storedProjects));
+    } else {
+        setProjects(initialProjects);
     }
 
   }, []);
@@ -170,7 +180,7 @@ export default function TicketsPage() {
               </TableHeader>
               <TableBody>
                 {isClient && tickets.map((ticket) => {
-                  const project = initialProjects.find(p => p.id === ticket.projectId);
+                  const project = projects.find(p => p.id === ticket.projectId);
                   return (
                   <TableRow key={ticket.id}>
                     <TableCell className="font-medium">{ticket.id}</TableCell>
