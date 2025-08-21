@@ -6,7 +6,7 @@ import { sendEmailNotification } from '@/ai/flows/send-email-notification';
 import { type Ticket, type TicketPriority, type User, TicketStatus } from '@/lib/types';
 import { allUsers } from '@/data/tickets';
 import { z } from 'zod';
-import { fetchUnreadEmails, ParsedMail } from '@/services/email-service';
+import { fetchUnreadEmails } from '@/services/email-service';
 
 const createTicketSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -26,7 +26,10 @@ const updateTicketSchema = z.object({
   assigneeId: z.string().optional(),
   category: z.string().optional(),
   projectId: z.string().min(1, "Project is required."),
+  // This field is for passing the full reporter object
+  reporter: z.any(),
 });
+
 
 const deleteTicketSchema = z.object({
   id: z.string(),
@@ -87,8 +90,7 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
 
   // In a real app, you would update the database here.
   // For this example, we're just returning the updated data.
-  const { id, ...updateData } = validatedFields.data;
-  const reporter = allUsers[0]; // TODO: This should be dynamic based on the actual ticket's reporter
+  const { id, reporter, ...updateData } = validatedFields.data;
   
   // This is a simplified update. In a real app, you'd fetch the existing ticket
   // and merge the fields.
@@ -104,7 +106,7 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     // These would not be updated like this in a real scenario
     createdAt: new Date(), 
     updatedAt: new Date(),
-    reporter,
+    reporter: reporter as User,
   };
 
   if (updatedTicket.status === 'Done' && updatedTicket.reporter.email) {
@@ -155,8 +157,17 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
             const description = email.text ?? "No description provided.";
             
             const fromEmail = email.from?.value[0]?.address;
+            const fromName = email.from?.value[0]?.name || fromEmail?.split('@')[0] || "Email User";
 
             const now = new Date();
+            
+            const reporter: User = { 
+                id: `user-${fromEmail}`, 
+                name: fromName, 
+                avatarUrl: `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${fromName.charAt(0).toUpperCase()}`, 
+                email: fromEmail 
+            };
+
             const newTicket: Ticket = {
               id: `TICKET-${Math.floor(1000 + Math.random() * 9000)}`,
               title,
@@ -166,7 +177,7 @@ export async function syncEmailsAction(): Promise<{ tickets?: Ticket[], error?: 
               priority: 'Medium', // Default priority
               createdAt: now,
               updatedAt: now,
-              reporter: { id: 'USER-EMAIL', name: email.from?.text ?? "Email User", avatarUrl: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=E', email: fromEmail },
+              reporter: reporter,
               projectId: 'PROJ-1', // Default project
             };
             newTickets.push(newTicket);

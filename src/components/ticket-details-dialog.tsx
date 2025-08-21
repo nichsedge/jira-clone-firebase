@@ -118,7 +118,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     if (!ticket) return;
 
     startTransition(async () => {
-       const result = await updateTicketAction({ id: ticket.id, ...values });
+       const result = await updateTicketAction({ id: ticket.id, ...values, reporter: ticket.reporter });
       if (result.error) {
         toast({
           variant: "destructive",
@@ -289,7 +289,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                     render={({ field }) => (
                         <FormItem>
                         <FormLabel>Assignee</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValuechange={field.onChange} defaultValue={field.value}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select an assignee" />

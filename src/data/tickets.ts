@@ -52,6 +52,7 @@ export const initialTickets: Ticket[] = [
     priority: 'Medium',
     createdAt: new Date(new Date().setDate(new Date().getDate() - 2)),
     updatedAt: new Date(new Date().setDate(new Date().getDate() - 2)),
+    assignee: allUsers[4],
     reporter: allUsers[0],
     projectId: 'PROJ-2',
   },
