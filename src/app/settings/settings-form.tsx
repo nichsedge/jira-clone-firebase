@@ -111,11 +111,7 @@ function SortableStatusItem({ id, onDelete }: SortableStatusItemProps) {
     );
 }
 
-interface SettingsFormProps {
-    defaultEmailSettings?: EmailSettings;
-}
-
-export function SettingsForm({ defaultEmailSettings }: SettingsFormProps) {
+export function SettingsForm() {
   const [isSyncing, startSyncTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
@@ -341,7 +337,7 @@ export function SettingsForm({ defaultEmailSettings }: SettingsFormProps) {
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-6 p-4 lg:p-6">
-            <EmailSettingsForm onSync={handleSyncEmails} isSyncing={isSyncing} defaultSettings={defaultEmailSettings} />
+            <EmailSettingsForm onSync={handleSyncEmails} isSyncing={isSyncing} />
             <div className="grid grid-cols-1">
                  <Card>
                     <CardHeader>
