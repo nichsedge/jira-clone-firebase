@@ -63,7 +63,7 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { useRouter } from "next/navigation";
-import { Ticket, TicketStatus, User } from "@/lib/types";
+import { Ticket, TicketStatus, User, EmailSettings } from "@/lib/types";
 import { initialStatuses } from "@/data/statuses";
 import { allUsers as initialAllUsers } from "@/data/tickets";
 import { syncEmailsAction } from "@/app/actions";
@@ -110,7 +110,11 @@ function SortableStatusItem({ id, onDelete }: SortableStatusItemProps) {
     );
 }
 
-export function SettingsForm() {
+interface SettingsFormProps {
+    defaultEmailSettings?: EmailSettings;
+}
+
+export function SettingsForm({ defaultEmailSettings }: SettingsFormProps) {
   const [isSyncing, startSyncTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
@@ -336,7 +340,7 @@ export function SettingsForm() {
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-6 p-4 lg:p-6">
-            <EmailSettingsForm onSync={handleSyncEmails} isSyncing={isSyncing} />
+            <EmailSettingsForm onSync={handleSyncEmails} isSyncing={isSyncing} defaultSettings={defaultEmailSettings} />
             <div className="grid grid-cols-1">
                  <Card>
                     <CardHeader>

@@ -49,14 +49,15 @@ const formSchema = z.object({
 interface EmailSettingsFormProps {
     onSync: () => void;
     isSyncing: boolean;
+    defaultSettings?: EmailSettings;
 }
 
-export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps) {
+export function EmailSettingsForm({ onSync, isSyncing, defaultSettings }: EmailSettingsFormProps) {
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: defaultSettings || {
       smtp: { host: "", port: 587, user: "", pass: "", tls: true },
       imap: { host: "", port: 993, user: "", pass: "", tls: true },
     },
@@ -66,8 +67,10 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
     const savedSettings = getEmailSettings();
     if (savedSettings) {
       form.reset(savedSettings);
+    } else if (defaultSettings) {
+      form.reset(defaultSettings);
     }
-  }, [form]);
+  }, [form, defaultSettings]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     saveEmailSettings(values);
@@ -96,7 +99,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
           <CardHeader>
             <CardTitle>Email Integration</CardTitle>
             <CardDescription>
-              Securely store your email credentials to enable ticket creation from your inbox and email notifications. Your password is encrypted before being saved.
+              Securely store your email credentials to enable ticket creation from your inbox and email notifications. Your password is encrypted before being saved. You can set default values in your .env file.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8">
