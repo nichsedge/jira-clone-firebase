@@ -234,12 +234,11 @@ export default function Dashboard() {
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center justify-between gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <div className="flex items-center gap-4">
+          <div className="flex-1">
             <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
-            {isClient && currentUser && <CreateTicketDialog allUsers={allUsers} onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
           </div>
-          <div className="w-full flex-1 md:w-auto md:flex-initial flex items-center justify-end gap-4">
-              <div className="relative">
+          <div className="flex-1 flex items-center justify-end gap-4">
+              <div className="relative md:w-auto md:flex-initial">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                   type="search"
@@ -265,6 +264,7 @@ export default function Dashboard() {
                     </>
                 )}
               </Button>
+               {isClient && currentUser && <CreateTicketDialog allUsers={allUsers} onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
