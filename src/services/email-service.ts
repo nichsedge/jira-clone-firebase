@@ -3,21 +3,28 @@
 
 import Imap from 'imap';
 import { simpleParser, ParsedMail } from 'mailparser';
+import type { EmailCredentials } from '@/lib/types';
 
 export type { ParsedMail };
 
-const imapConfig: Imap.Config = {
-    user: process.env.IMAP_USER!,
-    password: process.env.IMAP_PASS!,
-    host: process.env.IMAP_HOST!,
-    port: parseInt(process.env.IMAP_PORT || '993', 10),
-    tls: process.env.IMAP_USE_TLS === 'true',
-    tlsOptions: {
-        rejectUnauthorized: false
+export async function fetchUnreadEmails(credentials: EmailCredentials): Promise<ParsedMail[]> {
+    if (!credentials || !credentials.host || !credentials.port || !credentials.user || !credentials.pass) {
+        const errorMessage = `Email fetching is not configured. Please provide all required IMAP credentials.`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
     }
-};
 
-export async function fetchUnreadEmails(): Promise<ParsedMail[]> {
+    const imapConfig: Imap.Config = {
+        user: credentials.user,
+        password: credentials.pass,
+        host: credentials.host,
+        port: credentials.port,
+        tls: credentials.tls,
+        tlsOptions: {
+            rejectUnauthorized: false
+        }
+    };
+
     return new Promise((resolve, reject) => {
         const imap = new Imap(imapConfig);
         const emails: ParsedMail[] = [];

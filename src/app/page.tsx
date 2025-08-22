@@ -30,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
-import { type Ticket, type User } from "@/lib/types";
+import { type Ticket, type User, type EmailSettings } from "@/lib/types";
 import { initialTickets, allUsers as initialAllUsers } from "@/data/tickets";
 import { TicketBoard } from "@/components/ticket-board";
 import { CreateTicketDialog } from "@/components/create-ticket-dialog";
@@ -38,6 +38,7 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { syncEmailsAction } from "@/app/actions";
+import { getEmailSettings } from "@/lib/email-settings";
 
 const TICKETS_STORAGE_KEY = 'proflow-tickets';
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
@@ -50,6 +51,7 @@ export default function Dashboard() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
   const [isSyncing, startSyncTransition] = useTransition();
+  const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const { toast } = useToast();
 
 
@@ -77,6 +79,7 @@ export default function Dashboard() {
     } else if (users.length > 0) {
       setCurrentUser(users[0]);
     }
+    setEmailSettings(getEmailSettings());
 
   }, [])
 
@@ -122,8 +125,18 @@ export default function Dashboard() {
   };
 
   const handleSyncEmails = async () => {
+    const currentSettings = getEmailSettings();
+    if (!currentSettings) {
+        toast({
+            variant: "destructive",
+            title: "Email Settings Not Found",
+            description: "Please configure your email settings on the settings page before syncing.",
+        });
+        return;
+    }
+
     startSyncTransition(async () => {
-      const result = await syncEmailsAction(allUsers);
+      const result = await syncEmailsAction(allUsers, currentSettings);
       if (result.error) {
         toast({
           variant: "destructive",

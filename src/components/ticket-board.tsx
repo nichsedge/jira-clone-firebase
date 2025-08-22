@@ -14,7 +14,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { type Ticket, type TicketStatus, type User } from "@/lib/types";
+import { type Ticket, type TicketStatus, type User, type EmailSettings } from "@/lib/types";
 import { TicketColumn } from "./ticket-column";
 import { TicketCard } from "./ticket-card";
 import { TicketDetailsDialog } from "./ticket-details-dialog";
@@ -23,6 +23,7 @@ import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { updateTicketAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
 import { allUsers } from "@/data/tickets";
+import { getEmailSettings } from "@/lib/email-settings";
 
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
 
@@ -40,6 +41,7 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
   const [statuses, setStatuses] = useState<TicketStatus[]>([]);
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
 
   useEffect(() => {
     setIsClient(true)
@@ -49,6 +51,7 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
     } else {
       setStatuses(initialStatuses);
     }
+    setEmailSettings(getEmailSettings());
   }, [])
 
 
@@ -167,6 +170,7 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
             projectId: updatedTicket.projectId,
             reporter: updatedTicket.reporter, // Pass the full reporter object
             createdAt: updatedTicket.createdAt, // Pass the original creation date
+            emailSettings: emailSettings,
           });
 
           if (result.error && !result.ticket) {
@@ -231,7 +235,11 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
       </DragOverlay>
       <TicketDetailsDialog 
         isOpen={!!selectedTicket} 
-        onOpenChange={(isOpen) => !isOpen && setSelectedTicket(null)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            setSelectedTicket(null);
+          }
+        }}
         ticket={selectedTicket}
         onTicketUpdated={(updatedTicket) => {
           onTicketUpdated(updatedTicket);

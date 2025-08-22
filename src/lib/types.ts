@@ -1,4 +1,5 @@
 
+
 export type TicketStatus = string;
 export type TicketPriority = 'Low' | 'Medium' | 'High';
 
@@ -28,3 +29,16 @@ export type Ticket = {
   reporter: User;
   projectId: string;
 };
+
+export interface EmailCredentials {
+    user: string;
+    pass: string;
+    host: string;
+    port: number;
+    tls: boolean;
+}
+
+export interface EmailSettings {
+    smtp: EmailCredentials;
+    imap: EmailCredentials;
+}

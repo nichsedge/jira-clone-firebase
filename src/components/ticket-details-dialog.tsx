@@ -48,12 +48,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { type Ticket, type User, type TicketStatus, type Project } from "@/lib/types";
+import { type Ticket, type User, type TicketStatus, type Project, EmailSettings } from "@/lib/types";
 import { format, formatDistanceToNow } from "date-fns";
 import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2, FolderKanban, MessageSquare } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { allUsers, initialProjects } from "@/data/tickets"; 
 import { initialStatuses } from "@/data/statuses";
+import { getEmailSettings } from "@/lib/email-settings";
 
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
 const PROJECTS_STORAGE_KEY = 'proflow-projects';
@@ -83,6 +84,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
   const { toast } = useToast();
   const [statuses, setStatuses] = useState<TicketStatus[]>(initialStatuses);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
 
   useEffect(() => {
     const storedStatuses = localStorage.getItem(STATUSES_STORAGE_KEY);
@@ -93,6 +95,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     if (storedProjects) {
         setProjects(JSON.parse(storedProjects));
     }
+    setEmailSettings(getEmailSettings());
   }, [isOpen]);
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -129,8 +132,9 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
         ...values, 
         reporter: ticket.reporter,
         createdAt: ticket.createdAt,
+        emailSettings: emailSettings,
        });
-      if (result.error) {
+      if (result.error && !result.ticket) {
         toast({
           variant: "destructive",
           title: "Uh oh! Something went wrong.",
@@ -141,6 +145,13 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
           title: "Success!",
           description: "Ticket has been updated.",
         });
+         if (result.error) { // Ticket updated but email failed
+            toast({
+                variant: "destructive",
+                title: "Ticket Updated, Email Failed",
+                description: result.error,
+            });
+         }
         // We need to merge the existing ticket data with the updated data
         const fullyUpdatedTicket = { ...ticket, ...result.ticket };
         onTicketUpdated(fullyUpdatedTicket);

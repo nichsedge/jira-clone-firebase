@@ -1,7 +1,7 @@
 
 'use server';
 
-import { type Ticket, type TicketPriority, type User, TicketStatus } from '@/lib/types';
+import { type Ticket, type TicketPriority, type User, TicketStatus, type EmailSettings } from '@/lib/types';
 import { allUsers } from '@/data/tickets';
 import { z } from 'zod';
 import { sendMail } from '@/services/email-sender';
@@ -28,6 +28,7 @@ const updateTicketSchema = z.object({
   projectId: z.string().min(1, "Project is required."),
   reporter: z.any(),
   createdAt: z.date(),
+  emailSettings: z.any().optional(),
 });
 
 
@@ -83,7 +84,7 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     };
   }
 
-  const { id, reporter, createdAt, ...updateData } = validatedFields.data;
+  const { id, reporter, createdAt, emailSettings, ...updateData } = validatedFields.data;
   
   if (!reporter || !reporter.id) {
       return { error: 'Invalid reporter data provided for update.' };
@@ -111,7 +112,7 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
       createdAt: createdAt, 
   };
 
-  if (updatedTicket.status === 'Done' && updatedTicket.reporter.email) {
+  if (updatedTicket.status === 'Done' && updatedTicket.reporter.email && emailSettings?.smtp) {
       try {
            const subject = `Ticket Resolved: ${updatedTicket.id} - ${updatedTicket.title}`;
             const textBody = `Hello,\n\nYour support ticket "${updatedTicket.title}" with ID ${updatedTicket.id} has been marked as resolved.\n\nThank you for using our support system.\n\nThe ProFlow Team`;
@@ -132,7 +133,7 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
               subject: subject,
               text: textBody,
               html: htmlBody,
-            });
+            }, emailSettings.smtp);
       } catch (emailError) {
           console.error("Failed to send email notification:", emailError);
           return { ticket: updatedTicket, error: "Ticket updated, but failed to send email notification." };
@@ -156,9 +157,12 @@ export async function deleteTicketAction(values: z.infer<typeof deleteTicketSche
 }
 
 
-export async function syncEmailsAction(existingUsers: User[]): Promise<{ tickets?: Ticket[], newUsers?: User[], error?: string, count: number }> {
+export async function syncEmailsAction(existingUsers: User[], emailSettings: EmailSettings): Promise<{ tickets?: Ticket[], newUsers?: User[], error?: string, count: number }> {
     try {
-        const emails = await fetchUnreadEmails();
+        if (!emailSettings?.imap) {
+            return { error: 'IMAP settings are not configured.', count: 0 };
+        }
+        const emails = await fetchUnreadEmails(emailSettings.imap);
         const ticketEmails = emails.filter(email => email.subject?.includes('[TICKET]'));
 
         if (ticketEmails.length === 0) {
@@ -214,6 +218,9 @@ export async function syncEmailsAction(existingUsers: User[]): Promise<{ tickets
         return { tickets: newTickets, newUsers: newUsers, count: newTickets.length };
     } catch (error) {
         console.error('Email sync failed:', error);
-        return { error: 'Failed to sync emails.', count: 0 };
+        if (error instanceof Error) {
+            return { error: `Failed to sync emails: ${error.message}`, count: 0 };
+        }
+        return { error: 'Failed to sync emails due to an unknown error.', count: 0 };
     }
 }
