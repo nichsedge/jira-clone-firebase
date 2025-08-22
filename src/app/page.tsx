@@ -234,11 +234,9 @@ export default function Dashboard() {
       </Sidebar>
       <SidebarInset>
         <header className="flex h-14 items-center justify-between gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-          <div className="flex-1">
-            <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
-          </div>
-          <div className="flex-1 flex items-center justify-end gap-4">
-              <div className="relative md:w-auto md:flex-initial">
+          <div className="flex items-center gap-4">
+            <h1 className="text-lg font-semibold md:text-2xl hidden md:flex">Dashboard</h1>
+             <div className="relative md:w-auto md:flex-initial">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                   type="search"
@@ -248,6 +246,8 @@ export default function Dashboard() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   />
               </div>
+          </div>
+          <div className="flex items-center gap-4">
               <Button onClick={handleSyncEmails} disabled={isSyncing}>
                 {isSyncing ? (
                     <>
@@ -269,7 +269,7 @@ export default function Dashboard() {
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           <div className="flex items-center">
-             {/* This heading is now in the header, you might want to remove this or repurpose it */}
+             <h1 className="text-lg font-semibold md:text-2xl md:hidden">Dashboard</h1>
           </div>
           {isClient && <TicketBoard tickets={filteredTickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} onTicketDeleted={handleTicketDeleted} />}
         </main>
