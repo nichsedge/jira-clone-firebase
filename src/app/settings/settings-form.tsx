@@ -65,11 +65,15 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { useRouter } from "next/navigation";
 import { Ticket, TicketStatus, User, EmailSettings } from "@/lib/types";
+import { UserRole } from "@/lib/permissions";
 import { initialStatuses } from "@/data/statuses";
 import { allUsers as initialAllUsers } from "@/data/tickets";
 import { syncEmailsAction } from "@/app/actions";
 import { EmailSettingsForm } from "./email-settings-form";
 import { getEmailSettings } from "@/lib/email-settings";
+import MigrationPage from "./migration-page";
+import { UserManagement } from "@/components/user-management";
+import { AuditDashboard } from "@/components/audit-dashboard";
 
 const STATUSES_STORAGE_KEY = 'proflow-statuses';
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
@@ -337,6 +341,9 @@ export function SettingsForm() {
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-6 p-4 lg:p-6">
+            <MigrationPage />
+            {currentUser && <UserManagement currentUser={currentUser} />}
+            {currentUser && <AuditDashboard userId={currentUser.id} isAdmin={currentUser.role === 'ADMIN'} />}
             <EmailSettingsForm onSync={handleSyncEmails} isSyncing={isSyncing} />
             <div className="grid grid-cols-1">
                  <Card>

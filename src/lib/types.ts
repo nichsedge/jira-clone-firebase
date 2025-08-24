@@ -3,11 +3,15 @@
 export type TicketStatus = string;
 export type TicketPriority = 'Low' | 'Medium' | 'High';
 
+import { UserRole } from './permissions';
+
 export type User = {
   id: string;
   name: string;
   avatarUrl: string;
   email?: string;
+  role?: UserRole;
+  createdAt?: string;
 };
 
 export type Project = {

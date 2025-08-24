@@ -39,6 +39,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { syncEmailsAction } from "@/app/actions";
 import { getEmailSettings } from "@/lib/email-settings";
+import { ticketsApi, usersApi, type Ticket as ApiTicket, type User as ApiUser } from "@/services/api";
+import { useTicketsRealtime } from "@/hooks/useRealtime";
 
 const TICKETS_STORAGE_KEY = 'proflow-tickets';
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
@@ -47,6 +49,7 @@ const USERS_STORAGE_KEY = 'proflow-users';
 export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isClient, setIsClient] = useState(false)
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
@@ -54,33 +57,70 @@ export default function Dashboard() {
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const { toast } = useToast();
 
+  // Real-time updates
+  const { isConnected: isRealtimeConnected } = useTicketsRealtime();
+
 
   useEffect(() => {
-    setIsClient(true)
-    const storedTickets = localStorage.getItem(TICKETS_STORAGE_KEY);
-    if (storedTickets) {
-      const parsedTickets = JSON.parse(storedTickets).map((t: any) => ({
-        ...t,
-        createdAt: new Date(t.createdAt),
-        updatedAt: new Date(t.updatedAt),
-      }));
-      setTickets(parsedTickets);
-    } else {
-      setTickets(initialTickets);
-    }
-    
-    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    const users = storedUsers ? JSON.parse(storedUsers) : initialAllUsers;
-    setAllUsers(users);
+    setIsClient(true);
 
-    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-    if(storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    } else if (users.length > 0) {
-      setCurrentUser(users[0]);
-    }
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Load tickets from API
+        const ticketsResponse = await ticketsApi.getAll();
+        if (ticketsResponse.success && ticketsResponse.data) {
+          setTickets(ticketsResponse.data.map((t: ApiTicket) => ({
+            ...t,
+            createdAt: new Date(t.createdAt),
+            updatedAt: new Date(t.updatedAt),
+          })));
+        } else {
+          // Fallback to initial data if API fails
+          setTickets(initialTickets);
+        }
+
+        // Load users from API
+        const usersResponse = await usersApi.getAll();
+        if (usersResponse.success && usersResponse.data) {
+          setAllUsers(usersResponse.data);
+          // Set current user to first user or fallback to localStorage
+          const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+          if (storedUser) {
+            const parsedUser = JSON.parse(storedUser);
+            const userExists = usersResponse.data.find(u => u.id === parsedUser.id);
+            if (userExists) {
+              setCurrentUser(userExists);
+            } else if (usersResponse.data.length > 0) {
+              setCurrentUser(usersResponse.data[0]);
+            }
+          } else if (usersResponse.data.length > 0) {
+            setCurrentUser(usersResponse.data[0]);
+          }
+        } else {
+          // Fallback to initial users
+          setAllUsers(initialAllUsers);
+          const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+          if (storedUser) {
+            setCurrentUser(JSON.parse(storedUser));
+          } else {
+            setCurrentUser(initialAllUsers[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+        // Fallback to localStorage/initial data
+        setTickets(initialTickets);
+        setAllUsers(initialAllUsers);
+        setCurrentUser(initialAllUsers[0]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
     setEmailSettings(getEmailSettings());
-
   }, [])
 
   useEffect(() => {
@@ -112,16 +152,126 @@ export default function Dashboard() {
   }, [tickets, searchTerm]);
 
 
-  const handleTicketCreated = (newTicket: Ticket) => {
-    setTickets((prevTickets) => [newTicket, ...prevTickets]);
-  };
-  
-  const handleTicketUpdated = (updatedTicket: Ticket) => {
-     setTickets((prevTickets) => prevTickets.map(ticket => ticket.id === updatedTicket.id ? { ...ticket, ...updatedTicket} : ticket));
-  }
+  const handleTicketCreated = async (newTicket: Ticket) => {
+    try {
+      // Optimistically update UI
+      setTickets((prevTickets) => [newTicket, ...prevTickets]);
 
-  const handleTicketDeleted = (deletedTicketId: string) => {
-    setTickets((prevTickets) => prevTickets.filter(ticket => ticket.id !== deletedTicketId));
+      // Create ticket via API
+      const response = await ticketsApi.create({
+        title: newTicket.title,
+        description: newTicket.description,
+        priority: newTicket.priority,
+        assignee: newTicket.assignee,
+        projectId: newTicket.projectId,
+        reporter: newTicket.reporter,
+        category: newTicket.category,
+        status: newTicket.status,
+      });
+
+      if (response.success && response.data) {
+        // Update with server response
+        setTickets((prevTickets) =>
+          prevTickets.map(ticket =>
+            ticket.id === newTicket.id ? response.data! : ticket
+          )
+        );
+      } else {
+        // Revert optimistic update on error
+        setTickets((prevTickets) =>
+          prevTickets.filter(ticket => ticket.id !== newTicket.id)
+        );
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.error || "Failed to create ticket",
+        });
+      }
+    } catch (error) {
+      // Revert optimistic update
+      setTickets((prevTickets) =>
+        prevTickets.filter(ticket => ticket.id !== newTicket.id)
+      );
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create ticket",
+      });
+    }
+  };
+
+  const handleTicketUpdated = async (updatedTicket: Ticket) => {
+    try {
+      // Optimistically update UI
+      setTickets((prevTickets) =>
+        prevTickets.map(ticket =>
+          ticket.id === updatedTicket.id ? updatedTicket : ticket
+        )
+      );
+
+      // Update ticket via API
+      const response = await ticketsApi.update(updatedTicket.id, {
+        title: updatedTicket.title,
+        description: updatedTicket.description,
+        status: updatedTicket.status,
+        priority: updatedTicket.priority,
+        assignee: updatedTicket.assignee,
+        category: updatedTicket.category,
+        projectId: updatedTicket.projectId,
+      });
+
+      if (!response.success) {
+        // Revert optimistic update on error
+        // Note: In a real app, you'd want to refetch the original ticket
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.error || "Failed to update ticket",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update ticket",
+      });
+    }
+  };
+
+  const handleTicketDeleted = async (deletedTicketId: string) => {
+    try {
+      // Optimistically update UI
+      const deletedTicket = tickets.find(t => t.id === deletedTicketId);
+      setTickets((prevTickets) =>
+        prevTickets.filter(ticket => ticket.id !== deletedTicketId)
+      );
+
+      // Delete ticket via API
+      const response = await ticketsApi.delete(deletedTicketId);
+
+      if (!response.success) {
+        // Revert optimistic update on error
+        if (deletedTicket) {
+          setTickets((prevTickets) => [deletedTicket, ...prevTickets]);
+        }
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.error || "Failed to delete ticket",
+        });
+      }
+    } catch (error) {
+      // Revert optimistic update
+      const deletedTicket = tickets.find(t => t.id === deletedTicketId);
+      if (deletedTicket) {
+        setTickets((prevTickets) => [deletedTicket, ...prevTickets]);
+      }
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete ticket",
+      });
+    }
   };
 
   const handleSyncEmails = async () => {
@@ -248,30 +398,50 @@ export default function Dashboard() {
               </div>
           </div>
           <div className="flex items-center gap-4">
-              <Button onClick={handleSyncEmails} disabled={isSyncing}>
-                {isSyncing ? (
-                    <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Syncing...
-                    </>
-                ) : (
-                    <>
-                    <Mail className="mr-2 h-4 w-4" />
-                    Sync Emails
-                    </>
-                )}
-              </Button>
-               {isClient && currentUser && <CreateTicketDialog allUsers={allUsers} onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
-          </div>
+               <Button onClick={handleSyncEmails} disabled={isSyncing}>
+                 {isSyncing ? (
+                     <>
+                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                     </svg>
+                     Syncing...
+                     </>
+                 ) : (
+                     <>
+                     <Mail className="mr-2 h-4 w-4" />
+                     Sync Emails
+                     </>
+                 )}
+               </Button>
+
+               {/* Real-time connection indicator */}
+               {isClient && (
+                 <div className="flex items-center gap-2 text-sm">
+                   <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
+                   <span className="text-muted-foreground">
+                     {isRealtimeConnected ? 'Live' : 'Offline'}
+                   </span>
+                 </div>
+               )}
+
+                {isClient && currentUser && <CreateTicketDialog allUsers={allUsers} onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
+           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           <div className="flex items-center">
              <h1 className="text-lg font-semibold md:text-2xl md:hidden">Dashboard</h1>
           </div>
-          {isClient && <TicketBoard tickets={filteredTickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} onTicketDeleted={handleTicketDeleted} />}
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading tickets...</p>
+              </div>
+            </div>
+          ) : (
+            isClient && <TicketBoard tickets={filteredTickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} onTicketDeleted={handleTicketDeleted} />
+          )}
         </main>
       </SidebarInset>
     </SidebarProvider>

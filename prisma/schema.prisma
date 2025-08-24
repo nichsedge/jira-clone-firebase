@@ -1,0 +1,178 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model with authentication
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  avatarUrl String?
+  password  String?  // For email/password auth
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reportedTickets Ticket[]    @relation("Reporter")
+  assignedTickets Ticket[]    @relation("Assignee")
+  projects       Project[]    @relation("ProjectOwner")
+  auditLogs      AuditLog[]
+  accounts       Account[]
+  sessions       Session[]
+
+  // NextAuth fields
+  emailVerified DateTime?
+  image         String?
+
+  @@map("users")
+}
+
+// User roles
+enum UserRole {
+  ADMIN
+  USER
+  GUEST
+}
+
+// Project model
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tickets Ticket[]
+  ownerId String
+  owner   User    @relation("ProjectOwner", fields: [ownerId], references: [id])
+
+  @@map("projects")
+}
+
+// Ticket status enum
+model TicketStatus {
+  id     String @id @default(cuid())
+  name   String @unique
+  color  String?
+  order  Int    @default(0)
+
+  // Relations
+  tickets Ticket[]
+
+  @@map("ticket_statuses")
+}
+
+// Ticket priority enum
+model TicketPriority {
+  id     String @id @default(cuid())
+  name   String @unique
+  level  Int    @default(0)
+  color  String?
+
+  // Relations
+  tickets Ticket[]
+
+  @@map("ticket_priorities")
+}
+
+// Ticket model
+model Ticket {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  statusId     String
+  status       TicketStatus @relation(fields: [statusId], references: [id])
+
+  priorityId   String
+  priority     TicketPriority @relation(fields: [priorityId], references: [id])
+
+  projectId    String
+  project      Project @relation(fields: [projectId], references: [id])
+
+  reporterId   String
+  reporter     User   @relation("Reporter", fields: [reporterId], references: [id])
+
+  assigneeId   String?
+  assignee     User?  @relation("Assignee", fields: [assigneeId], references: [id])
+
+  // Audit logs
+  auditLogs    AuditLog[]
+
+  @@map("tickets")
+}
+
+// Audit log for tracking changes
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, ASSIGNMENT
+  entityType  String   // TICKET, PROJECT, USER
+  entityId    String
+  oldValues   Json?    // Previous values
+  newValues   Json?    // New values
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  ticketId    String?
+  ticket      Ticket?  @relation(fields: [ticketId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// NextAuth models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
