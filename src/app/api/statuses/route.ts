@@ -1,12 +1,40 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { PrismaClient } from '@prisma/client';
+import { authOptions } from '@/lib/auth';
+import type { Session } from 'next-auth';
 
-export async function GET() {
-  const statuses = [
-    { id: 'OPEN', name: 'Open', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' },
-    { id: 'IN_PROGRESS', name: 'In Progress', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' },
-    { id: 'DONE', name: 'Done', color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' },
-    { id: 'CLOSED', name: 'Closed', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400' }
-  ];
+const prisma = new PrismaClient();
 
-  return NextResponse.json(statuses);
+interface ExtendedSession extends Session {
+  user: {
+    id: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions) as ExtendedSession;
+    if (!session?.user?.id) {
+      console.log('DEBUG: No session or user ID - returning 401');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    console.log(`DEBUG: Logged in user: ${session.user.email || session.user.name} (ID: ${session.user.id})`);
+
+    const statuses = await prisma.status.findMany({
+      orderBy: { createdAt: 'asc' },
+    });
+
+    console.log(`DEBUG: Found ${statuses.length} statuses for user ${session.user.id}`);
+    console.log(`DEBUG: Status IDs:`, statuses.map(s => s.id).join(', '));
+
+    return NextResponse.json(statuses);
+  } catch (error) {
+    console.error('Error fetching statuses:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
 }

@@ -1,12 +1,9 @@
-
-
-export type TicketStatus = string;
-export type TicketPriority = 'Low' | 'Medium' | 'High';
+export type TicketPriority = 'low' | 'medium' | 'high';
 
 export type User = {
   id: string;
   name: string;
-  avatarUrl: string;
+  image?: string | null;
   email?: string;
 };
 
@@ -22,17 +19,19 @@ export interface Status {
   color: string;
 }
 
+export type TicketStatus = Status | string;
+
 export type Ticket = {
   id: string;
   title: string;
-  description: string;
-  status?: Status;
+  description?: string | null;
+  status?: TicketStatus;
   category?: string;
   priority: TicketPriority;
   createdAt: Date;
   updatedAt: Date;
   assignee?: User;
-  reporter: User;
+  reporter?: User;
   projectId: string;
   project?: Project;
 };

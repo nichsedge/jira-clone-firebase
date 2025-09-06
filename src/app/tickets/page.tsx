@@ -39,6 +39,14 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { type Ticket, type User, type Project } from "@/lib/types";
+
+const priorityDisplayMap: Record<string, string> = {
+  'LOW': 'Low',
+  'MEDIUM': 'Medium',
+  'HIGH': 'High',
+};
+
+const getPriorityDisplay = (priority: string) => priorityDisplayMap[priority] || priority;
 import { cn } from "@/lib/utils";
 
 
@@ -192,12 +200,12 @@ export default function TicketsPage() {
                           variant="outline"
                           className={cn(
                             "capitalize",
-                            ticket.priority === "High" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
-                            ticket.priority === "Medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
-                            ticket.priority === "Low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
+                            getPriorityDisplay(ticket.priority) === "High" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
+                            getPriorityDisplay(ticket.priority) === "Medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
+                            getPriorityDisplay(ticket.priority) === "Low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
                           )}
                         >
-                          {ticket.priority}
+                          {getPriorityDisplay(ticket.priority)}
                         </Badge>
                       </TableCell>
                       <TableCell>{ticket.project?.name || 'No Project'}</TableCell>
@@ -206,7 +214,7 @@ export default function TicketsPage() {
                           <div className="flex items-center gap-2">
                             <Avatar className="h-6 w-6">
                               <AvatarImage
-                                src={ticket.assignee.avatarUrl}
+                                src={ticket.assignee.image}
                                 alt={ticket.assignee.name}
                               />
                               <AvatarFallback>{ticket.assignee.name[0]}</AvatarFallback>

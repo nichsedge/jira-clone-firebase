@@ -145,6 +145,16 @@ async function main() {
   console.log('Added project memberships for demo access');
 
   // Create status records with predictable IDs
+  const todoStatus = await prisma.status.upsert({
+    where: { id: 'status-todo' },
+    update: {},
+    create: {
+      id: 'status-todo',
+      name: 'To Do',
+      color: '#6B7280', // gray
+    },
+  });
+
   const openStatus = await prisma.status.upsert({
     where: { id: 'status-open' },
     update: {},
@@ -175,7 +185,7 @@ async function main() {
     },
   });
 
-  const statuses = [openStatus, inProgressStatus, doneStatus];
+  const statuses = [todoStatus, openStatus, inProgressStatus, doneStatus];
 
   // Create comprehensive tickets across different projects and statuses
   const yesterday = new Date();
@@ -195,7 +205,7 @@ async function main() {
       id: 'TICKET-8782',
       title: 'UI bug on login page',
       description: 'The login button is misaligned on mobile devices, making it difficult to click.',
-      statusId: openStatus.id, // OPEN
+      statusId: todoStatus.id, // TO DO
       priority: 'HIGH' as const,
       createdAt: yesterday,
       updatedAt: yesterday,
@@ -206,7 +216,7 @@ async function main() {
       id: 'TICKET-5214',
       title: 'API endpoint for user data is slow',
       description: 'The /api/users endpoint is taking over 2 seconds to respond, impacting performance.',
-      statusId: inProgressStatus.id, // IN_PROGRESS
+      statusId: openStatus.id, // OPEN
       priority: 'HIGH' as const,
       createdAt: threeDaysAgo,
       updatedAt: twoDaysAgo,
@@ -217,7 +227,7 @@ async function main() {
       id: 'TICKET-3921',
       title: 'Design new dashboard layout',
       description: 'Create wireframes and mockups for the new dashboard interface with improved UX.',
-      statusId: openStatus.id, // OPEN
+      statusId: inProgressStatus.id, // IN_PROGRESS
       priority: 'MEDIUM' as const,
       createdAt: twoDaysAgo,
       updatedAt: twoDaysAgo,

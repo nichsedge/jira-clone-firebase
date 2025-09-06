@@ -28,9 +28,16 @@ const priorityMap: Record<string, string> = {
   'High': 'HIGH',
 };
 
+const displayPriorityMap: Record<string, string> = {
+  'LOW': 'Low',
+  'MEDIUM': 'Medium',
+  'HIGH': 'High',
+};
+
 const createTicketSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
-  description: z.string().min(1, 'Description is required.'),
+  description: z.string().optional(),
+  statusId: z.string().optional(),
   priority: z.enum(['Low', 'Medium', 'High']),
   assigneeId: z.string().optional(),
   projectId: z.string().min(1, "Project is required."),
@@ -41,6 +48,7 @@ const updateTicketSchema = z.object({
   id: z.string(),
   title: z.string().optional(),
   description: z.string().optional(),
+  statusId: z.string().optional(),
   status: z.string().optional(),
   priority: z.enum(['Low', 'Medium', 'High']).optional(),
   assigneeId: z.string().optional(),
@@ -69,7 +77,7 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
     };
   }
   
-  const { title, description, priority, assigneeId, projectId, reporter } = validatedFields.data;
+  const { title, description, statusId, priority, assigneeId, projectId, reporter } = validatedFields.data;
 
   if (!reporter || !reporter.id) {
     return { error: 'Invalid reporter.' };
@@ -91,20 +99,22 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
       return { error: 'Project not found or unauthorized' };
     }
 
-    const toDoStatus = await (prisma as any).status.findFirst({
-      where: { name: 'To Do' },
-    });
-
-    if (!toDoStatus) {
-      return { error: 'Default status "To Do" not found.' };
+    let statusConnect = { id: 'status-todo' }; // Default to To Do
+    if (statusId) {
+      const status = await prisma.status.findUnique({
+        where: { id: statusId },
+      });
+      if (status) {
+        statusConnect = { id: statusId };
+      }
     }
 
     const now = new Date();
     const newTicket = await prisma.ticket.create({
       data: {
         title,
-        description,
-        status: { connect: { id: toDoStatus.id } } as any,
+        description: description || undefined,
+        status: { connect: statusConnect } as any,
         priority: priorityMap[priority] as any,
         project: { connect: { id: projectId } } as any,
         ...(assigneeId && { assignee: { connect: { id: assigneeId } } as any }),
@@ -122,15 +132,15 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
       id: newTicket.id,
       title: newTicket.title || '',
       description: newTicket.description || '',
-      status: (newTicket as any).status?.name || 'To Do', // Use status name from included status
+      status: newTicket.status as any,
       category: 'General',
       priority: priority as any,
       createdAt: newTicket.createdAt,
       updatedAt: newTicket.updatedAt,
-      assignee: (newTicket as any).assignee ? { id: (newTicket as any).assignee.id, name: (newTicket as any).assignee.name || 'Unknown', email: (newTicket as any).assignee.email || '', avatarUrl: (newTicket as any).assignee.image || '' } : undefined,
+      assignee: newTicket.assignee ? { id: newTicket.assignee.id, name: newTicket.assignee.name || 'Unknown', email: newTicket.assignee.email || '', image: newTicket.assignee.image || '' } : undefined,
       reporter: reporter,
       projectId: newTicket.projectId,
-      project: (newTicket as any).project, // Include project
+      project: newTicket.project, // Include project
     };
 
     return { ticket };
@@ -218,8 +228,10 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     }
 
     let statusToConnect = null;
-    if (updateData.status) {
-      const statusToUpdate = await (prisma as any).status.findFirst({
+    if (updateData.statusId) {
+      statusToConnect = { id: updateData.statusId };
+    } else if (updateData.status) {
+      const statusToUpdate = await prisma.status.findFirst({
         where: { name: updateData.status },
       });
       if (!statusToUpdate) {
@@ -239,7 +251,7 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
       updateFields.description = updateData.description;
     }
     if (statusToConnect) {
-      updateFields.statusId = statusToConnect.id;
+      updateFields.statusId = 'id' in statusToConnect ? statusToConnect.id : statusToConnect;
     }
     if (updateData.priority !== undefined) {
       updateFields.priority = priorityMap[updateData.priority] as any;
@@ -258,25 +270,25 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
       } as any,
     });
 
-    const frontendStatus = (updatedTicket.status as any)?.name || (currentTicket.status as any)?.name || 'Unknown';
-    console.log('Mapped status for ticket', id, ': DB status=', (updatedTicket.status as any)?.name, 'Frontend status=', frontendStatus, 'Type of frontend status:', typeof frontendStatus);
+    const frontendStatus = updatedTicket.status as any;
+    const currentPriority = currentTicket.priority;
     const ticketData: Ticket = {
       id: updatedTicket.id,
       title: updateData.title !== undefined ? updateData.title : updatedTicket.title || '',
       description: updateData.description !== undefined ? updateData.description : updatedTicket.description || '',
       status: frontendStatus,
       category: updateData.category || 'General',
-      priority: (updateData.priority !== undefined ? updateData.priority : (currentTicket.priority === 'LOW' ? 'Low' : currentTicket.priority === 'MEDIUM' ? 'Medium' : 'High')) as any,
-      assignee: (updatedTicket.assignee as any) ? { id: (updatedTicket.assignee as any).id, name: (updatedTicket.assignee as any).name || 'Unknown', email: (updatedTicket.assignee as any).email || '', avatarUrl: (updatedTicket.assignee as any).image || '' } : undefined,
+      priority: (updateData.priority !== undefined ? updateData.priority : displayPriorityMap[currentPriority] || 'Medium') as any,
+      assignee: updatedTicket.assignee ? { id: updatedTicket.assignee.id, name: updatedTicket.assignee.name || 'Unknown', email: updatedTicket.assignee.email || '', image: updatedTicket.assignee.image || '' } : undefined,
       reporter,
       projectId: updatedTicket.projectId,
-      project: (updatedTicket.project as any), // Include project
+      project: updatedTicket.project, // Include project
       createdAt,
       updatedAt: updatedTicket.updatedAt,
     };
 
     // Email notification if status is DONE and reporter email exists
-    if ((updatedTicket as any).status?.name === 'Done' && reporter.email && emailSettings?.smtp) {
+    if (frontendStatus?.name === 'Done' && reporter.email && emailSettings?.smtp) {
       try {
         const subject = `Ticket Resolved: ${ticketData.id} - ${ticketData.title}`;
         const textBody = `Hello,\n\nYour support ticket "${ticketData.title}" with ID ${ticketData.id} has been marked as resolved.\n\nThank you for using our support system.\n\nThe ProFlow Team`;
@@ -414,7 +426,7 @@ export async function syncEmailsAction(existingUsers: User[], emailSettings: Ema
                 id: createdReporter.id,
                 name: createdReporter.name || 'Unknown',
                 email: createdReporter.email || fromEmail,
-                avatarUrl: createdReporter.image || '',
+                image: createdReporter.image || '',
               };
 
               const newUser: User = reporterFrontend;
@@ -424,13 +436,13 @@ export async function syncEmailsAction(existingUsers: User[], emailSettings: Ema
                 id: reporter.id,
                 name: reporter.name || 'Unknown',
                 email: reporter.email || '',
-                avatarUrl: reporter.image || '',
+                image: reporter.image || '',
               };
           }
 
           const now = new Date();
 
-          const toDoStatus: Status | null = await (prisma as any).status.findFirst({
+          const toDoStatus = await prisma.status.findFirst({
             where: { name: 'To Do' },
           });
 
@@ -442,9 +454,9 @@ export async function syncEmailsAction(existingUsers: User[], emailSettings: Ema
           const newTicket = await prisma.ticket.create({
             data: {
               title,
-              description,
+              description: description || undefined,
               status: { connect: { id: toDoStatus.id } } as any,
-              priority: 'MEDIUM',
+              priority: 'MEDIUM' as any,
               project: { connect: { id: 'PROJ-1' } } as any,
               updatedAt: now,
             },
@@ -459,15 +471,15 @@ export async function syncEmailsAction(existingUsers: User[], emailSettings: Ema
             id: newTicket.id,
             title: newTicket.title || '',
             description: newTicket.description || '',
-            status: (newTicket as any).status?.name || 'To Do', // Use status name from included status
+            status: newTicket.status as any,
             category: "From Email",
-            priority: 'Medium' as TicketPriority,
+            priority: displayPriorityMap[newTicket.priority] || 'Medium',
             createdAt: now,
             updatedAt: now,
             reporter: reporterFrontend,
             projectId: newTicket.projectId,
-            project: (newTicket as any).project, // Include project
-            assignee: (newTicket as any).assignee ? { id: (newTicket as any).assignee.id, name: (newTicket as any).assignee.name || 'Unknown', email: (newTicket as any).assignee.email || '', avatarUrl: (newTicket as any).assignee.image || '' } : undefined,
+            project: newTicket.project, // Include project
+            assignee: newTicket.assignee ? { id: newTicket.assignee.id, name: newTicket.assignee.name || 'Unknown', email: newTicket.assignee.email || '', image: newTicket.assignee.image || '' } : undefined,
           };
           newTickets.push(ticket);
       }
