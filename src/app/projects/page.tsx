@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -56,86 +55,172 @@ import {
 import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
-import { initialProjects, allUsers as initialAllUsers } from "@/data/tickets";
 import { User, Project } from "@/lib/types";
 import { AddProjectDialog } from "@/components/add-project-dialog";
 import { toast } from "@/hooks/use-toast";
-
-const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
-const USERS_STORAGE_KEY = 'proflow-users';
-const PROJECTS_STORAGE_KEY = 'proflow-projects';
+import { useSession } from "next-auth/react";
 
 export default function ProjectsPage() {
-  const [isClient, setIsClient] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<Project | undefined>(undefined);
   const [projectToDelete, setProjectToDelete] = useState<Project | undefined>(undefined);
 
+  const { data: session, status } = useSession();
 
   useEffect(() => {
-    setIsClient(true);
-    
-    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    const users = storedUsers ? JSON.parse(storedUsers) : initialAllUsers;
-    setAllUsers(users);
+    if (status === 'loading') return;
 
-    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-    if(storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    } else if (users.length > 0) {
-      setCurrentUser(users[0]);
-    }
-    
-    const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
-    if (storedProjects) {
-        setProjects(JSON.parse(storedProjects));
-    } else {
-        setProjects(initialProjects);
-    }
-  }, []);
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        if (session?.user) {
+          setCurrentUser({
+            id: session.user.id,
+            name: session.user.name || 'Unknown',
+            email: session.user.email || '',
+            avatarUrl: session.user.image || '',
+          } as User);
+        }
 
-  useEffect(() => {
-    if (isClient && currentUser) {
-      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
-    }
-  }, [currentUser, isClient]);
+        const [usersRes, projectsRes] = await Promise.all([
+          fetch('/api/users'),
+          fetch('/api/projects'),
+        ]);
 
-  useEffect(() => {
-    if (isClient) {
-        localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
-    }
-  }, [projects, isClient]);
+        if (usersRes.ok) {
+          const users = await usersRes.json();
+          setAllUsers(users);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error loading users",
+            description: "Failed to load users.",
+          });
+        }
 
-  const handleProjectAdded = (newProject: Omit<Project, 'id'>) => {
-    const newId = `PROJ-${Math.floor(1000 + Math.random() * 9000)}`;
-    setProjects(prev => [...prev, { ...newProject, id: newId }]);
-    toast({
-        title: "Project created",
-        description: `Project ${newProject.name} has been successfully created.`,
-    });
+        if (projectsRes.ok) {
+          const prjs = await projectsRes.json();
+          setProjects(prjs);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error loading projects",
+            description: "Failed to load projects.",
+          });
+        }
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error loading data",
+          description: "Failed to load data.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [status, session?.user?.id]); // Add session.user.id to dependencies to refetch when user changes
+
+  const refetchProjects = async () => {
+    const res = await fetch('/api/projects');
+    if (res.ok) {
+      const prjs = await res.json();
+      setProjects(prjs);
+    }
   };
 
-  const handleProjectUpdated = (updatedProject: Project) => {
-    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
-     toast({
-        title: "Project updated",
-        description: `Project ${updatedProject.name} has been successfully updated.`,
-    });
+  const handleProjectAdded = async (newProject: Omit<Project, 'id'>) => {
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProject),
+      });
+      if (res.ok) {
+        toast({
+          title: "Project created",
+          description: `Project ${newProject.name} has been successfully created.`,
+        });
+        await refetchProjects();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error creating project",
+          description: "Failed to create project.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error creating project",
+        description: "Failed to create project.",
+      });
+    }
   };
 
-  const handleProjectDeleted = () => {
+  const handleProjectUpdated = async (updatedProject: Project) => {
+    try {
+      const res = await fetch(`/api/projects/${updatedProject.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedProject),
+      });
+      if (res.ok) {
+        toast({
+          title: "Project updated",
+          description: `Project ${updatedProject.name} has been successfully updated.`,
+        });
+        await refetchProjects();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error updating project",
+          description: "Failed to update project.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error updating project",
+        description: "Failed to update project.",
+      });
+    }
+  };
+
+  const handleProjectDeleted = async () => {
     if (!projectToDelete) return;
-    setProjects(prev => prev.filter(p => p.id !== projectToDelete.id));
-    toast({
-        title: "Project deleted",
-        description: `Project ${projectToDelete.name} has been deleted.`,
-    });
+    try {
+      const res = await fetch(`/api/projects/${projectToDelete.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        toast({
+          title: "Project deleted",
+          description: `Project ${projectToDelete.name} has been deleted.`,
+        });
+        await refetchProjects();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error deleting project",
+          description: "Failed to delete project.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error deleting project",
+        description: "Failed to delete project.",
+      });
+    }
     setProjectToDelete(undefined);
   };
-  
+   
   const openEditDialog = (project: Project) => {
     setProjectToEdit(project);
     setIsAddProjectDialogOpen(true);
@@ -146,6 +231,9 @@ export default function ProjectsPage() {
     setIsAddProjectDialogOpen(true);
   }
 
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <SidebarProvider>
@@ -194,7 +282,7 @@ export default function ProjectsPage() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                {isClient && currentUser && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
+                {currentUser && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>
@@ -223,7 +311,7 @@ export default function ProjectsPage() {
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {isClient && projects.map(project => (
+            {projects.map(project => (
                 <Card key={project.id}>
                     <CardHeader className="flex flex-row items-start justify-between">
                         <div>
@@ -254,15 +342,13 @@ export default function ProjectsPage() {
             ))}
           </div>
         </main>
-        {isClient && (
-            <AddProjectDialog
-                isOpen={isAddProjectDialogOpen}
-                onOpenChange={setIsAddProjectDialogOpen}
-                projectToEdit={projectToEdit}
-                onProjectAdded={handleProjectAdded}
-                onProjectUpdated={handleProjectUpdated}
-            />
-        )}
+        <AddProjectDialog
+            isOpen={isAddProjectDialogOpen}
+            onOpenChange={setIsAddProjectDialogOpen}
+            projectToEdit={projectToEdit}
+            onProjectAdded={handleProjectAdded}
+            onProjectUpdated={handleProjectUpdated}
+        />
         <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(undefined)}>
             <AlertDialogContent>
                 <AlertDialogHeader>

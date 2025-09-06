@@ -17,14 +17,13 @@ export default function RegisterPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            For demo purposes, available users are:
+            For demo purposes, use the admin account:
           </p>
           <ul className="text-sm space-y-1">
-            <li>alice.johnson.demo@example.com</li>
-            <li>bob.williams.demo@example.com</li>
+            <li>admin@example.com</li>
           </ul>
           <p className="text-sm text-muted-foreground">
-            Password: Any string will work for demo authentication.
+            Password: admin123
           </p>
           <Button asChild className="w-full">
             <Link href="/login">

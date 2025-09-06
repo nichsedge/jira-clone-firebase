@@ -1,7 +1,9 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { allUsers } from '@/data/tickets';
-import CryptoJS from 'crypto-js';
+import bcrypt from 'bcryptjs';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,23 +18,34 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        // Find user by email (mock implementation)
-        const user = allUsers.find(u => u.email === credentials.email);
+        // Find user by email
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email as string },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            hashedPassword: true,
+          },
+        });
 
-        if (!user) {
+        if (!user || !user.hashedPassword) {
           return null;
         }
 
-        // In a real implementation, you'd hash the password and compare
-        // For demo, we'll just check if user exists
-        // Password would be hashed during registration
-        // For now, accept any password for existing users
+        // Compare hashed password
+        const isValidPassword = await bcrypt.compare(credentials.password as string, user.hashedPassword);
+
+        if (!isValidPassword) {
+          return null;
+        }
 
         return {
           id: user.id,
           name: user.name,
           email: user.email,
-          image: user.avatarUrl
+          image: user.image
         };
       }
     })
