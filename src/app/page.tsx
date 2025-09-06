@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useTransition } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Home,
@@ -45,6 +47,8 @@ const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 const USERS_STORAGE_KEY = 'proflow-users';
 
 export default function Dashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isClient, setIsClient] = useState(false)
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,6 +58,14 @@ export default function Dashboard() {
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (status === 'loading') return;
+
+    if (!session) {
+      router.push('/login');
+      return;
+    }
+  }, [session, status, router]);
 
   useEffect(() => {
     setIsClient(true)
@@ -68,20 +80,31 @@ export default function Dashboard() {
     } else {
       setTickets(initialTickets);
     }
-    
+
     const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
     const users = storedUsers ? JSON.parse(storedUsers) : initialAllUsers;
     setAllUsers(users);
 
-    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-    if(storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    } else if (users.length > 0) {
-      setCurrentUser(users[0]);
+    // Set current user from session if available
+    if (session?.user?.email) {
+      const userFromSession = users.find((u: User) => u.email === session.user!.email);
+      if (userFromSession) {
+        setCurrentUser(userFromSession);
+      } else {
+        // Fallback to first user
+        setCurrentUser(users[0]);
+      }
+    } else {
+      const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+      if(storedUser) {
+        setCurrentUser(JSON.parse(storedUser));
+      } else if (users.length > 0) {
+        setCurrentUser(users[0]);
+      }
     }
     setEmailSettings(getEmailSettings());
 
-  }, [])
+  }, [session])
 
   useEffect(() => {
     if (isClient) {

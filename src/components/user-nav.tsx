@@ -1,6 +1,8 @@
 
 "use client";
 
+import { useRouter } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import {
   Avatar,
   AvatarFallback,
@@ -17,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { User } from "@/lib/types";
+import { LogOut, User as UserIcon } from "lucide-react";
 
 interface UserNavProps {
     users: User[];
@@ -25,6 +28,13 @@ interface UserNavProps {
 }
 
 export function UserNav({ users, currentUser, onUserChange }: UserNavProps) {
+  const { data: session } = useSession();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: '/login' });
+  };
+
   return (
     <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -42,6 +52,22 @@ export function UserNav({ users, currentUser, onUserChange }: UserNavProps) {
         <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{session?.user?.name || currentUser.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                {session?.user?.email || currentUser.email}
+                </p>
+            </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+                <DropdownMenuItem onSelect={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign out
+                </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">Switch User</p>
                 <p className="text-xs leading-none text-muted-foreground">
                 Select a user to act as.
@@ -52,8 +78,8 @@ export function UserNav({ users, currentUser, onUserChange }: UserNavProps) {
             <DropdownMenuGroup>
                 {users.map(user => (
                      <DropdownMenuItem key={user.id} onSelect={() => onUserChange(user)} disabled={currentUser.id === user.id}>
-                        {user.name}
-                    </DropdownMenuItem>
+                         {user.name}
+                     </DropdownMenuItem>
                 ))}
             </DropdownMenuGroup>
         </DropdownMenuContent>
