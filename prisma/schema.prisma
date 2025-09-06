@@ -75,6 +75,7 @@ model Ticket {
   statusId    String?
   status      Status?  @relation(fields: [statusId], references: [id], onDelete: SetNull)
   priority    TicketPriority @default(MEDIUM)
+  category    String?
   projectId   String
   project     Project  @relation(fields: [projectId], references: [id])
   assigneeId  String?

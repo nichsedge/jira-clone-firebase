@@ -131,12 +131,17 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     startTransition(async () => {
        // Map status ID to name for the action
        const statusName = statuses.find(s => s.id === values.status)?.name || values.status;
+       const priorityMap: Record<TicketPriority, 'Low' | 'Medium' | 'High'> = {
+         low: 'Low',
+         medium: 'Medium',
+         high: 'High',
+       };
        const result = await updateTicketAction({
         id: ticket.id,
         title: values.title,
         description: values.description || undefined,
         status: statusName,
-        priority: values.priority.toUpperCase() as any,
+        priority: priorityMap[values.priority],
         assigneeId: values.assigneeId === 'unassigned' ? undefined : values.assigneeId || undefined,
         category: values.category || undefined,
         projectId: values.projectId,

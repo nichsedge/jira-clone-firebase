@@ -54,8 +54,8 @@ const updateTicketSchema = z.object({
   assigneeId: z.string().optional(),
   category: z.string().optional(),
   projectId: z.string().optional(),
-  reporter: z.any(),
-  createdAt: z.date(),
+  reporter: z.any().optional(),
+  createdAt: z.string(),
   emailSettings: z.any().optional(),
 });
 
@@ -137,7 +137,7 @@ export async function createTicketAction(values: z.infer<typeof createTicketSche
       priority: priority as any,
       createdAt: newTicket.createdAt,
       updatedAt: newTicket.updatedAt,
-      assignee: newTicket.assignee ? { id: newTicket.assignee.id, name: newTicket.assignee.name || 'Unknown', email: newTicket.assignee.email || '', image: newTicket.assignee.image || '' } : undefined,
+      assignee: newTicket.assignee ? { id: newTicket.assignee.id, name: newTicket.assignee.name || 'Unknown', email: newTicket.assignee.email || '', image: newTicket.assignee.image || '', priority: 'MEDIUM' } : undefined,
       reporter: reporter,
       projectId: newTicket.projectId,
       project: newTicket.project, // Include project
@@ -159,16 +159,165 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
   const validatedFields = updateTicketSchema.safeParse(values);
 
   if (!validatedFields.success) {
+    console.error('Validation errors:', validatedFields.error.errors);
+    console.error('Input values:', values);
     return {
-      error: "Invalid fields.",
+      error: `Invalid fields: ${validatedFields.error.errors.map(e => `${e.path.join('.')} - ${e.message}`).join(', ')}`,
     };
   }
 
-  const { id, reporter, createdAt, emailSettings, ...updateData } = validatedFields.data;
+  const { id, title, description, status, priority, assigneeId, category, projectId, createdAt, emailSettings } = validatedFields.data;
   
-  if (!reporter || !reporter.id) {
-      return { error: 'Invalid reporter data provided for update.' };
+  // Get existing ticket data for base information
+  const existingTicket = await prisma.ticket.findUnique({
+    where: { id },
+    include: {
+      assignee: true,
+      status: true,
+      project: true
+    } as any,
+  });
+
+  if (!existingTicket) {
+    return { error: 'Ticket not found' };
   }
+
+  // Check project access
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId || existingTicket.projectId,
+      OR: [
+        { ownerId: session.user.id },
+        { members: { some: { id: session.user.id } } }
+      ]
+    },
+  });
+
+  if (!project) {
+    return { error: 'Project not found or unauthorized' };
+  }
+
+  // Validate assignee exists if provided
+  let validAssigneeId = existingTicket.assigneeId;
+  if (assigneeId !== undefined) {
+    if (assigneeId === null || assigneeId === '') {
+      validAssigneeId = null;
+    } else {
+      const assignee = await prisma.user.findUnique({
+        where: { id: assigneeId },
+      });
+      if (!assignee) {
+        console.warn(`Assignee not found: ${assigneeId}, clearing assignment`);
+        validAssigneeId = null;
+      } else {
+        validAssigneeId = assigneeId;
+      }
+    }
+  }
+
+  let statusToConnect = null;
+  if (status) {
+    const statusToUpdate = await prisma.status.findFirst({
+      where: { name: status },
+    });
+    if (!statusToUpdate) {
+      return { error: `Status "${status}" not found.` };
+    }
+    statusToConnect = statusToUpdate;
+  }
+
+  const updateFields: any = {
+    updatedAt: new Date(),
+  };
+
+  if (title !== undefined) {
+    updateFields.title = title;
+  }
+  if (description !== undefined) {
+    updateFields.description = description;
+  }
+  if (statusToConnect) {
+    updateFields.statusId = statusToConnect.id;
+  }
+  if (priority !== undefined) {
+    updateFields.priority = priorityMap[priority] as any;
+  }
+  if (validAssigneeId !== undefined) {
+    updateFields.assigneeId = validAssigneeId;
+  }
+  if (category !== undefined) {
+    updateFields.category = category;
+  }
+  if (projectId !== undefined) {
+    updateFields.projectId = projectId;
+  }
+
+  const updatedTicket = await prisma.ticket.update({
+    where: { id },
+    data: updateFields,
+    include: {
+      project: true,
+      assignee: true,
+      status: true,
+    } as any,
+  });
+
+  const frontendStatus = updatedTicket.status as any;
+  const currentPriority = existingTicket.priority;
+  const providedReporter = validatedFields.data.reporter;
+  const reporterData = providedReporter && providedReporter.id ? providedReporter : {
+    id: 'SYSTEM',
+    name: 'System',
+    email: '',
+    image: '',
+    priority: 'MEDIUM' as const
+  };
+  const ticketData: Ticket = {
+    id: updatedTicket.id,
+    title: title !== undefined ? title : updatedTicket.title || '',
+    description: description !== undefined ? description : updatedTicket.description || '',
+    status: frontendStatus,
+    category: category !== undefined ? category : existingTicket.category || 'General',
+    priority: (priority !== undefined ? priority : displayPriorityMap[currentPriority] || 'Medium') as any,
+    assignee: updatedTicket.assignee ? { id: updatedTicket.assignee.id, name: updatedTicket.assignee.name || 'Unknown', email: updatedTicket.assignee.email || '', image: updatedTicket.assignee.image || '', priority: 'MEDIUM' } : undefined,
+    reporter: reporterData,
+    projectId: updatedTicket.projectId,
+    project: updatedTicket.project,
+    createdAt: new Date(createdAt),
+    updatedAt: updatedTicket.updatedAt,
+  };
+
+  // Email notification if status is DONE (skip if no reporter email)
+  if (frontendStatus?.name === 'Done' && emailSettings?.smtp) {
+    try {
+      const subject = `Ticket Resolved: ${ticketData.id} - ${ticketData.title}`;
+      const textBody = `Hello,\n\nYour support ticket "${ticketData.title}" with ID ${ticketData.id} has been marked as resolved.\n\nThank you for using our support system.\n\nThe ProFlow Team`;
+      const htmlBody = `
+        <div style="font-family: sans-serif; line-height: 1.6;">
+          <h2>Ticket Resolved: ${ticketData.id}</h2>
+          <p>Hello,</p>
+          <p>Your support ticket "<strong>${ticketData.title}</strong>" has been marked as resolved.</p>
+          <p>If you feel the issue is not resolved, please reply to this email to reopen the ticket.</p>
+          <br/>
+          <p>Thank you,</p>
+          <p><strong>The ProFlow Team</strong></p>
+        </div>
+      `;
+
+      // Use a default email or skip if no reporter email available
+      await sendMail({
+        to: 'support@proflow.com', // Default support email
+        subject: subject,
+        text: textBody,
+        html: htmlBody,
+      }, emailSettings.smtp);
+    } catch (emailError) {
+      console.error("Failed to send email notification:", emailError);
+      return { ticket: ticketData, error: "Ticket updated, but failed to send email notification." };
+    }
+  }
+
+  return { ticket: ticketData };
 
   try {
     const ticket = await prisma.ticket.findUnique({
@@ -259,6 +408,25 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
     if (validAssigneeId !== undefined) {
       updateFields.assigneeId = validAssigneeId;
     }
+    if (updateData.category !== undefined) {
+      updateFields.category = updateData.category;
+    }
+    if (updateData.projectId !== undefined) {
+      // Validate access to new project
+      const newProject = await prisma.project.findFirst({
+        where: {
+          id: updateData.projectId,
+          OR: [
+            { ownerId: session.user.id },
+            { members: { some: { id: session.user.id } } }
+          ]
+        },
+      });
+      if (!newProject) {
+        return { error: 'New project not found or unauthorized' };
+      }
+      updateFields.projectId = updateData.projectId;
+    }
 
     const updatedTicket = await prisma.ticket.update({
       where: { id },
@@ -279,16 +447,16 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
       status: frontendStatus,
       category: updateData.category || 'General',
       priority: (updateData.priority !== undefined ? updateData.priority : displayPriorityMap[currentPriority] || 'Medium') as any,
-      assignee: updatedTicket.assignee ? { id: updatedTicket.assignee.id, name: updatedTicket.assignee.name || 'Unknown', email: updatedTicket.assignee.email || '', image: updatedTicket.assignee.image || '' } : undefined,
+      assignee: updatedTicket.assignee ? { id: updatedTicket.assignee.id, name: updatedTicket.assignee.name || 'Unknown', email: updatedTicket.assignee.email || '', image: updatedTicket.assignee.image || '', priority: 'MEDIUM' } : undefined,
       reporter,
       projectId: updatedTicket.projectId,
       project: updatedTicket.project, // Include project
-      createdAt,
+      createdAt: new Date(createdAt),
       updatedAt: updatedTicket.updatedAt,
     };
 
     // Email notification if status is DONE and reporter email exists
-    if (frontendStatus?.name === 'Done' && reporter.email && emailSettings?.smtp) {
+    if (frontendStatus?.name === 'Done' && validatedFields.data.reporter?.email && emailSettings?.smtp) {
       try {
         const subject = `Ticket Resolved: ${ticketData.id} - ${ticketData.title}`;
         const textBody = `Hello,\n\nYour support ticket "${ticketData.title}" with ID ${ticketData.id} has been marked as resolved.\n\nThank you for using our support system.\n\nThe ProFlow Team`;
@@ -305,7 +473,7 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
         `;
 
         await sendMail({
-          to: reporter.email,
+          to: validatedFields.data.reporter.email,
           subject: subject,
           text: textBody,
           html: htmlBody,
@@ -318,8 +486,11 @@ export async function updateTicketAction(values: z.infer<typeof updateTicketSche
 
     return { ticket: ticketData };
   } catch (error) {
-    console.error(error);
-    return { error: 'Failed to update ticket.' };
+    console.error('Update ticket error details:', error);
+    if (error instanceof Error) {
+      return { error: `Failed to update ticket: ${error.message}` };
+    }
+    return { error: 'Failed to update ticket: Unknown error' };
   }
 }
 
@@ -427,6 +598,7 @@ export async function syncEmailsAction(existingUsers: User[], emailSettings: Ema
                 name: createdReporter.name || 'Unknown',
                 email: createdReporter.email || fromEmail,
                 image: createdReporter.image || '',
+                priority: 'MEDIUM',
               };
 
               const newUser: User = reporterFrontend;
@@ -437,6 +609,7 @@ export async function syncEmailsAction(existingUsers: User[], emailSettings: Ema
                 name: reporter.name || 'Unknown',
                 email: reporter.email || '',
                 image: reporter.image || '',
+                priority: 'MEDIUM',
               };
           }
 
@@ -473,13 +646,13 @@ export async function syncEmailsAction(existingUsers: User[], emailSettings: Ema
             description: newTicket.description || '',
             status: newTicket.status as any,
             category: "From Email",
-            priority: displayPriorityMap[newTicket.priority] || 'Medium',
+            priority: (displayPriorityMap[newTicket.priority] || 'medium') as TicketPriority,
             createdAt: now,
             updatedAt: now,
             reporter: reporterFrontend,
             projectId: newTicket.projectId,
             project: newTicket.project, // Include project
-            assignee: newTicket.assignee ? { id: newTicket.assignee.id, name: newTicket.assignee.name || 'Unknown', email: newTicket.assignee.email || '', image: newTicket.assignee.image || '' } : undefined,
+            assignee: newTicket.assignee ? { id: newTicket.assignee.id, name: newTicket.assignee.name || 'Unknown', email: newTicket.assignee.email || '', image: newTicket.assignee.image || '', priority: 'MEDIUM' } : undefined,
           };
           newTickets.push(ticket);
       }

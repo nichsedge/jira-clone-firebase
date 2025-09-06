@@ -7,7 +7,7 @@ export type User = {
   image?: string | null;
   email?: string;
   status?: Status | null;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH';
 };
 
 export type Project = {
