@@ -18,17 +18,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { User } from "@/lib/types";
 import { LogOut, User as UserIcon } from "lucide-react";
 
-interface UserNavProps {
-    users: User[];
-    currentUser: User;
-    onUserChange: (user: User) => void;
-}
 
-export function UserNav({ users, currentUser, onUserChange }: UserNavProps) {
-  const { data: session } = useSession();
+export function UserNav({ session }: { session: any }) {
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -38,25 +31,38 @@ export function UserNav({ users, currentUser, onUserChange }: UserNavProps) {
   return (
     <DropdownMenu>
         <DropdownMenuTrigger asChild>
-            <div className="flex items-center gap-2 p-2 cursor-pointer">
-                <Avatar className="h-8 w-8">
-                    <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} data-ai-hint="user avatar" />
-                    <AvatarFallback>{currentUser.name[0]}</AvatarFallback>
+            <Button
+                variant="ghost"
+                className="flex items-center gap-3 px-2 py-1.5 h-auto rounded-md hover:bg-accent hover:text-accent-foreground"
+                size="sm"
+            >
+                <Avatar className="h-7 w-7">
+                    <AvatarImage src={session?.user?.image} alt={session?.user?.name || 'User'} />
+                    <AvatarFallback className="text-xs font-medium">
+                        {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
+                    </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col text-sm">
-                    <span className="font-semibold">{currentUser.name}</span>
-                    <span className="text-muted-foreground">{`ID: ${currentUser.id}`}</span>
+                <div className="flex flex-col items-start text-left min-w-0 flex-1">
+                    <span className="font-medium text-sm truncate">
+                        {session?.user?.name || 'User'}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">
+                        {session?.user?.email || 'user@example.com'}
+                    </span>
                 </div>
-            </div>
+                <UserIcon className="h-4 w-4 opacity-50" />
+            </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{session?.user?.name || currentUser.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                {session?.user?.email || currentUser.email}
-                </p>
-            </div>
+            <DropdownMenuLabel className="px-1.5 py-1.5">
+                <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none truncate">
+                        {session?.user?.name}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground truncate max-w-[200px]">
+                        {session?.user?.email}
+                    </p>
+                </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
@@ -64,23 +70,6 @@ export function UserNav({ users, currentUser, onUserChange }: UserNavProps) {
                   <LogOut className="mr-2 h-4 w-4" />
                   Sign out
                 </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="font-normal">
-            <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">Switch User</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                Select a user to act as.
-                </p>
-            </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-                {users.map(user => (
-                     <DropdownMenuItem key={user.id} onSelect={() => onUserChange(user)} disabled={currentUser.id === user.id}>
-                         {user.name}
-                     </DropdownMenuItem>
-                ))}
             </DropdownMenuGroup>
         </DropdownMenuContent>
     </DropdownMenu>

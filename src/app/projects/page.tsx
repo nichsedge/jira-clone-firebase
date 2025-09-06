@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Home,
@@ -61,8 +62,6 @@ import { toast } from "@/hooks/use-toast";
 import { useSession } from "next-auth/react";
 
 export default function ProjectsPage() {
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
@@ -70,37 +69,21 @@ export default function ProjectsPage() {
   const [projectToDelete, setProjectToDelete] = useState<Project | undefined>(undefined);
 
   const { data: session, status } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
     if (status === 'loading') return;
+    if (!session) {
+      router.push('/login');
+      return;
+    }
 
     const loadData = async () => {
       try {
         setIsLoading(true);
-        if (session?.user) {
-          setCurrentUser({
-            id: session.user.id,
-            name: session.user.name || 'Unknown',
-            email: session.user.email || '',
-            avatarUrl: session.user.image || '',
-          } as User);
-        }
+        // No currentUser state needed for production
 
-        const [usersRes, projectsRes] = await Promise.all([
-          fetch('/api/users'),
-          fetch('/api/projects'),
-        ]);
-
-        if (usersRes.ok) {
-          const users = await usersRes.json();
-          setAllUsers(users);
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Error loading users",
-            description: "Failed to load users.",
-          });
-        }
+        const projectsRes = await fetch('/api/projects');
 
         if (projectsRes.ok) {
           const prjs = await projectsRes.json();
@@ -124,7 +107,7 @@ export default function ProjectsPage() {
     };
 
     loadData();
-  }, [status, session?.user?.id]); // Add session.user.id to dependencies to refetch when user changes
+  }, [status, session?.user?.id, router]); // Add router to dependencies
 
   const refetchProjects = async () => {
     const res = await fetch('/api/projects');
@@ -231,8 +214,12 @@ export default function ProjectsPage() {
     setIsAddProjectDialogOpen(true);
   }
 
-  if (isLoading) {
+  if (isLoading || status === 'loading') {
     return <div>Loading...</div>;
+  }
+
+  if (!session) {
+    return null; // Will redirect via useEffect
   }
 
   return (
@@ -282,7 +269,7 @@ export default function ProjectsPage() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                {currentUser && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
+                {session && <UserNav session={session} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>

@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
   Home,
@@ -56,69 +58,127 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { User } from "@/lib/types";
-import { allUsers as initialAllUsers } from "@/data/tickets";
 import { AddUserDialog } from "@/components/add-user-dialog";
 import { toast } from "@/hooks/use-toast";
 
-const USERS_STORAGE_KEY = 'proflow-users';
-const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
-
 export default function UsersPage() {
-  const [isClient, setIsClient] = useState(false);
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
   const [userToEdit, setUserToEdit] = useState<User | undefined>(undefined);
   const [userToDelete, setUserToDelete] = useState<User | undefined>(undefined);
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsClient(true);
-    
-    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    const users = storedUsers ? JSON.parse(storedUsers) : initialAllUsers;
-    setAllUsers(users);
-
-    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-    if (storedUser) {
-        setCurrentUser(JSON.parse(storedUser));
-    } else if (users.length > 0) {
-        setCurrentUser(users[0]);
+    if (status === 'loading') return;
+    if (!session) {
+      router.push('/login');
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(allUsers));
-    }
-  }, [allUsers, isClient]);
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        // No currentUser state needed for production
 
-  useEffect(() => {
-    if (isClient && currentUser) {
-      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
-    }
-  }, [currentUser, isClient]);
+        const usersRes = await fetch('/api/users');
+        if (usersRes.ok) {
+          const users = await usersRes.json();
+          setAllUsers(users);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Error loading users",
+            description: "Failed to load users.",
+          });
+        }
+      } catch (error) {
+        toast({
+          variant: "destructive",
+          title: "Error loading data",
+          description: "Failed to load data.",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [status, session?.user?.id, router]);
+
+  if (isLoading || status === 'loading') {
+    return <div>Loading...</div>;
+  }
+
+  if (!session) {
+    return null; // Will redirect via useEffect
+  }
   
-  const handleUserAdded = (newUser: User) => {
-    const newId = `USER-${Math.floor(1000 + Math.random() * 9000)}`;
-    setAllUsers(prev => [...prev, { ...newUser, id: newId }]);
-    toast({
-        title: "User created",
-        description: `User ${newUser.name} has been successfully created.`,
-    });
+  const handleUserAdded = async (newUser: Omit<User, "id">) => {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser),
+      });
+      if (res.ok) {
+        const createdUser = await res.json();
+        setAllUsers(prev => [...prev, createdUser]);
+        toast({
+          title: "User created",
+          description: `User ${newUser.name} has been successfully created.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error creating user",
+          description: "Failed to create user.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error creating user",
+        description: "Failed to create user.",
+      });
+    }
   };
 
-  const handleUserUpdated = (updatedUser: User) => {
-    setAllUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-    toast({
-        title: "User updated",
-        description: `User ${updatedUser.name} has been successfully updated.`,
-    });
+  const handleUserUpdated = async (updatedUser: User) => {
+    try {
+      const res = await fetch(`/api/users/${updatedUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedUser),
+      });
+      if (res.ok) {
+        setAllUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+        toast({
+          title: "User updated",
+          description: `User ${updatedUser.name} has been successfully updated.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error updating user",
+          description: "Failed to update user.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error updating user",
+        description: "Failed to update user.",
+      });
+    }
   };
 
-  const handleUserDeleted = () => {
+  const handleUserDeleted = async () => {
     if (!userToDelete) return;
 
-    if(userToDelete.id === currentUser?.id) {
+    // Check if deleting the logged-in user
+    if(userToDelete.id === session?.user?.id) {
         toast({
             variant: "destructive",
             title: "Cannot delete current user",
@@ -128,11 +188,30 @@ export default function UsersPage() {
         return;
     }
 
-    setAllUsers(prev => prev.filter(u => u.id !== userToDelete.id));
-    toast({
-        title: "User deleted",
-        description: `User ${userToDelete.name} has been deleted.`,
-    });
+    try {
+      const res = await fetch(`/api/users/${userToDelete.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setAllUsers(prev => prev.filter(u => u.id !== userToDelete.id));
+        toast({
+          title: "User deleted",
+          description: `User ${userToDelete.name} has been deleted.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error deleting user",
+          description: "Failed to delete user.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error deleting user",
+        description: "Failed to delete user.",
+      });
+    }
     setUserToDelete(undefined);
   }
 
@@ -193,7 +272,7 @@ export default function UsersPage() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                {isClient && currentUser && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
+                {session && <UserNav session={session} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>
@@ -232,7 +311,7 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isClient && allUsers.map((user) => (
+                {allUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -269,15 +348,13 @@ export default function UsersPage() {
             </Table>
           </div>
         </main>
-        {isClient && (
-          <AddUserDialog 
-            isOpen={isAddUserDialogOpen}
-            onOpenChange={setIsAddUserDialogOpen}
-            userToEdit={userToEdit}
-            onUserAdded={handleUserAdded}
-            onUserUpdated={handleUserUpdated}
-          />
-        )}
+        <AddUserDialog
+          isOpen={isAddUserDialogOpen}
+          onOpenChange={setIsAddUserDialogOpen}
+          userToEdit={userToEdit}
+          onUserAdded={handleUserAdded}
+          onUserUpdated={handleUserUpdated}
+        />
         <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(undefined)}>
             <AlertDialogContent>
                 <AlertDialogHeader>

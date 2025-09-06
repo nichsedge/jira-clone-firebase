@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { format } from "date-fns";
 import {
@@ -37,61 +39,46 @@ import { UserNav } from "@/components/user-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { type Ticket, type User, type Project } from "@/lib/types";
-import { initialTickets, initialProjects, allUsers as initialAllUsers } from "@/data/tickets";
 import { cn } from "@/lib/utils";
 
-const TICKETS_STORAGE_KEY = 'proflow-tickets';
-const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
-const USERS_STORAGE_KEY = 'proflow-users';
-const PROJECTS_STORAGE_KEY = 'proflow-projects';
 
 export default function TicketsPage() {
+  const { data: session } = useSession();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isClient, setIsClient] = useState(false);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
 
   useEffect(() => {
     setIsClient(true);
-    const storedTickets = localStorage.getItem(TICKETS_STORAGE_KEY);
-    if (storedTickets) {
-      const parsedTickets = JSON.parse(storedTickets).map((t: any) => ({
-        ...t,
-        createdAt: new Date(t.createdAt),
-        updatedAt: new Date(t.updatedAt),
-      }));
-      setTickets(parsedTickets);
-    } else {
-      setTickets(initialTickets);
-    }
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
 
-    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    const users = storedUsers ? JSON.parse(storedUsers) : initialAllUsers;
-    setAllUsers(users);
+        // Load tickets (includes project data via API)
+        const ticketsRes = await fetch('/api/tickets');
+        if (ticketsRes.ok) {
+          const fetchedTickets = await ticketsRes.json();
+          console.log('DEBUG: Fetched tickets from API:', fetchedTickets);
+          console.log('DEBUG: Tickets length:', fetchedTickets.length);
+          console.log('DEBUG: First ticket status:', fetchedTickets[0]?.status);
+          console.log('DEBUG: First ticket status type:', typeof fetchedTickets[0]?.status);
+          console.log('DEBUG: First ticket status is object:', typeof fetchedTickets[0]?.status === 'object');
+          setTickets(fetchedTickets);
+        } else {
+          console.error('DEBUG: Tickets API failed with status:', ticketsRes.status);
+        }
 
-    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-    if(storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    } else if (users.length > 0) {
-      setCurrentUser(users[0]);
-    }
-    
-    const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
-    if (storedProjects) {
-        setProjects(JSON.parse(storedProjects));
-    } else {
-        setProjects(initialProjects);
-    }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
+    loadData();
   }, []);
 
-  useEffect(() => {
-    if (isClient && currentUser) {
-      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
-    }
-  }, [currentUser, isClient]);
 
 
   return (
@@ -141,7 +128,7 @@ export default function TicketsPage() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                {isClient && currentUser && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
+                {session && <UserNav session={session} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>
@@ -165,66 +152,80 @@ export default function TicketsPage() {
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-          <div className="border rounded-lg w-full">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Project</TableHead>
-                  <TableHead>Assignee</TableHead>
-                  <TableHead>Last Updated</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isClient && tickets.map((ticket) => {
-                  const project = projects.find(p => p.id === ticket.projectId);
-                  return (
-                  <TableRow key={ticket.id}>
-                    <TableCell className="font-medium">{ticket.id}</TableCell>
-                    <TableCell>{ticket.title}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{ticket.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "capitalize",
-                          ticket.priority === "High" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
-                          ticket.priority === "Medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
-                          ticket.priority === "Low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
-                        )}
-                      >
-                        {ticket.priority}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{project?.name}</TableCell>
-                    <TableCell>
-                      {ticket.assignee ? (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage
-                              src={ticket.assignee.avatarUrl}
-                              alt={ticket.assignee.name}
-                              data-ai-hint="person avatar"
-                            />
-                            <AvatarFallback>{ticket.assignee.name[0]}</AvatarFallback>
-                          </Avatar>
-                          <span>{ticket.assignee.name}</span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">Unassigned</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{format(new Date(ticket.updatedAt), "PP")}</TableCell>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <p>Loading tickets...</p>
+            </div>
+          ) : (
+            <div className="border rounded-lg w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Title</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Project</TableHead>
+                    <TableHead>Assignee</TableHead>
+                    <TableHead>Last Updated</TableHead>
                   </TableRow>
-                )})}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {(() => {
+                    console.log('DEBUG: Rendering tickets, total count:', tickets.length);
+                    console.log('DEBUG: All tickets:', tickets);
+                    tickets.forEach((ticket) => {
+                      const statusValue = ticket.status as any;
+                      console.log('DEBUG: Rendering ticket', ticket.id, 'status:', statusValue, 'type:', typeof statusValue);
+                    });
+                    return tickets.map((ticket) => {
+                      const statusValue = ticket.status as any;
+                      return (
+                    <TableRow key={ticket.id}>
+                      <TableCell className="font-medium">{ticket.id}</TableCell>
+                      <TableCell>{ticket.title}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{typeof statusValue === 'object' ? statusValue?.name || 'Unknown' : statusValue}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "capitalize",
+                            ticket.priority === "High" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
+                            ticket.priority === "Medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
+                            ticket.priority === "Low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
+                          )}
+                        >
+                          {ticket.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{ticket.project?.name || 'No Project'}</TableCell>
+                      <TableCell>
+                        {ticket.assignee ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage
+                                src={ticket.assignee.avatarUrl}
+                                alt={ticket.assignee.name}
+                              />
+                              <AvatarFallback>{ticket.assignee.name[0]}</AvatarFallback>
+                            </Avatar>
+                            <span>{ticket.assignee.name}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Unassigned</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{format(new Date(ticket.updatedAt), "PP")}</TableCell>
+                    </TableRow>
+                    );
+                  });
+                  })()}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </main>
       </SidebarInset>
     </SidebarProvider>

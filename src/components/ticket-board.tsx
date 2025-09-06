@@ -14,18 +14,19 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { type Ticket, type TicketStatus, type User, type EmailSettings } from "@/lib/types";
+import { type Ticket, type User, type EmailSettings, type Status } from "@/lib/types";
+
+ // Status interface already defined in types.ts
+
+type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'CLOSED';
+type StatusKey = string; // Allow any string key for grouping
 import { TicketColumn } from "./ticket-column";
 import { TicketCard } from "./ticket-card";
 import { TicketDetailsDialog } from "./ticket-details-dialog";
-import { initialStatuses } from "@/data/statuses";
 import { ScrollArea, ScrollBar } from "./ui/scroll-area";
 import { updateTicketAction } from "@/app/actions";
 import { useToast } from "@/hooks/use-toast";
-import { allUsers } from "@/data/tickets";
 import { getEmailSettings } from "@/lib/email-settings";
-
-const STATUSES_STORAGE_KEY = 'proflow-statuses';
 
 interface TicketBoardProps {
   tickets: Ticket[];
@@ -38,34 +39,105 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isClient, setIsClient] = useState(false)
-  const [statuses, setStatuses] = useState<TicketStatus[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
 
   useEffect(() => {
     setIsClient(true)
-    const storedStatuses = localStorage.getItem(STATUSES_STORAGE_KEY);
-    if (storedStatuses) {
-      setStatuses(JSON.parse(storedStatuses));
-    } else {
-      setStatuses(initialStatuses);
-    }
-    setEmailSettings(getEmailSettings());
+    const loadStatuses = async () => {
+      try {
+        const response = await fetch('/api/statuses');
+        if (response.ok) {
+          const statusesData = await response.json();
+          setStatuses(statusesData);
+        } else {
+          // Fallback to default statuses if API fails
+          console.warn('Failed to fetch statuses, using defaults');
+          setStatuses([
+            { id: 'OPEN', name: 'Open', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' },
+            { id: 'IN_PROGRESS', name: 'In Progress', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' },
+            { id: 'DONE', name: 'Done', color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' },
+            { id: 'CLOSED', name: 'Closed', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400' }
+          ]);
+        }
+      } catch (error) {
+        console.error('Error loading statuses:', error);
+        // Fallback to default statuses
+        setStatuses([
+          { id: 'OPEN', name: 'Open', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' },
+          { id: 'IN_PROGRESS', name: 'In Progress', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' },
+          { id: 'DONE', name: 'Done', color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' },
+          { id: 'CLOSED', name: 'Closed', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400' }
+        ]);
+      }
+      setEmailSettings(getEmailSettings());
+    };
+  
+    loadStatuses();
   }, [])
 
-
   const ticketsByStatus = useMemo(() => {
-    const grouped: Record<TicketStatus, Ticket[]> = {};
+    console.log('DEBUG: Available statuses:', statuses);
+    console.log('DEBUG: All tickets:', tickets.length);
+    
+    const grouped: Record<string, Ticket[]> = {};
+    
+    // Initialize columns for all statuses by name
     statuses.forEach(status => {
-        grouped[status] = [];
+      grouped[status.name] = [];
     });
-    for (const ticket of tickets) {
-      if (ticket.status && grouped[ticket.status]) {
-        grouped[ticket.status].push(ticket);
+    
+    tickets.forEach(ticket => {
+      console.log('DEBUG: Ticket', ticket.id, 'status:', ticket.status);
+      
+      let statusName: string = 'Open'; // default
+      
+      if (ticket.status && typeof ticket.status === 'object' && 'name' in ticket.status) {
+        statusName = (ticket.status as any).name;
+        console.log('DEBUG: Using status object name:', statusName);
+      } else if (typeof ticket.status === 'string') {
+        // Map common status strings to names
+        const statusMap: Record<string, string> = {
+          'Open': 'Open',
+          'In Progress': 'In Progress',
+          'Done': 'Done',
+          'OPEN': 'Open',
+          'IN_PROGRESS': 'In Progress',
+          'DONE': 'Done'
+        };
+        statusName = statusMap[ticket.status] || ticket.status || 'Open';
+        console.log('DEBUG: Using string status mapped to:', statusName);
       }
-    }
-    return grouped;
+      
+      // Find matching status by name
+      const matchingStatus = statuses.find(s => s.name === statusName);
+      if (matchingStatus) {
+        grouped[statusName].push(ticket);
+        console.log('DEBUG: Assigned ticket', ticket.id, 'to', statusName, 'column');
+      } else {
+        // Fallback to first available status
+        const firstStatus = statuses[0];
+        if (firstStatus) {
+          grouped[firstStatus.name].push(ticket);
+          console.log('DEBUG: Fallback assigned ticket', ticket.id, 'to', firstStatus.name);
+        }
+      }
+    });
+    
+    console.log('DEBUG: Final column distribution by name:');
+    Object.keys(grouped).forEach(key => {
+      console.log(`  ${key}: ${grouped[key].length} tickets`);
+    });
+    
+    // Convert back to status ID keyed object for rendering
+    const idKeyedGrouped: Record<string, Ticket[]> = {};
+    statuses.forEach(status => {
+      idKeyedGrouped[status.id] = grouped[status.name] || [];
+    });
+    
+    return idKeyedGrouped;
   }, [tickets, statuses]);
 
   const sensors = useSensors(
@@ -110,14 +182,24 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
       const activeTicket = newTickets[activeTicketIndex];
   
       // Dropping on a column
-      if (statuses.includes(overId as TicketStatus)) {
-        const newStatus = overId as TicketStatus;
-        if (activeTicket.status !== newStatus) {
-            activeTicket.status = newStatus;
+      const targetStatus = statuses.find(s => s.id === overId);
+      if (targetStatus) {
+        const newStatusId = targetStatus.id;
+        // Check if status needs to change
+        const currentStatusId = activeTicket.status?.id || activeTicket.status || '';
+        if (currentStatusId !== newStatusId) {
+            // Update status to match the target status object
+            const targetStatusObj = statuses.find(s => s.id === newStatusId);
+            if (targetStatusObj) {
+              activeTicket.status = targetStatusObj;
+            }
             
             // Move to the end of the new column's list of tickets
             const otherTickets = newTickets.filter(t => t.id !== activeId);
-            const columnTickets = otherTickets.filter(t => t.status === newStatus);
+            const columnTickets = otherTickets.filter(t => {
+              const tStatusId = t.status?.id || t.status || '';
+              return tStatusId === newStatusId;
+            });
             const lastTicketInColumn = columnTickets[columnTickets.length - 1];
             
             let newIndex;
@@ -125,10 +207,13 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
                 const lastTicketIndex = newTickets.findIndex(t => t.id === lastTicketInColumn.id);
                 newIndex = lastTicketIndex + 1;
             } else {
-                const columnIndex = statuses.indexOf(newStatus);
+                const columnIndex = statuses.findIndex(s => s.id === newStatusId);
                 let nextColumnTicketIndex = -1;
                 for(let i = columnIndex + 1; i < statuses.length; i++) {
-                    const foundTicket = newTickets.find(t => t.status === statuses[i]);
+                    const foundTicket = newTickets.find(t => {
+                      const tStatusId = t.status?.id || t.status || '';
+                      return tStatusId === statuses[i].id;
+                    });
                     if (foundTicket) {
                         nextColumnTicketIndex = newTickets.indexOf(foundTicket);
                         break;
@@ -147,7 +232,9 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
       // Dropping on another ticket
       else if (overTicketIndex !== -1) {
         const overTicket = newTickets[overTicketIndex];
-        if (activeTicket.status !== overTicket.status) {
+        const activeStatusId = activeTicket.status?.id || activeTicket.status || '';
+        const overStatusId = overTicket.status?.id || overTicket.status || '';
+        if (activeStatusId !== overStatusId) {
           activeTicket.status = overTicket.status;
           newTickets = arrayMove(newTickets, activeTicketIndex, overTicketIndex);
         } else {
@@ -161,15 +248,9 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
         startTransition(async () => {
           const result = await updateTicketAction({
             id: updatedTicket.id,
-            title: updatedTicket.title,
-            description: updatedTicket.description,
-            status: updatedTicket.status,
-            priority: updatedTicket.priority,
-            assigneeId: updatedTicket.assignee?.id,
-            category: updatedTicket.category,
-            projectId: updatedTicket.projectId,
-            reporter: updatedTicket.reporter, // Pass the full reporter object
-            createdAt: updatedTicket.createdAt, // Pass the original creation date
+            status: typeof updatedTicket.status === 'string' ? updatedTicket.status : updatedTicket.status?.name || '',
+            reporter: updatedTicket.reporter,
+            createdAt: updatedTicket.createdAt,
             emailSettings: emailSettings,
           });
 
@@ -218,14 +299,18 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
     >
       <ScrollArea className="w-full">
         <div className="flex gap-6 pb-4">
-          {statuses.map((status) => (
-            <TicketColumn
-              key={status}
-              status={status}
-              tickets={ticketsByStatus[status] || []}
-              onTicketClick={handleTicketClick}
-            />
-          ))}
+          {statuses.map((status) => {
+            const statusTickets = ticketsByStatus[status.id] || [];
+            console.log('DEBUG: Rendering', status.name, 'column with', statusTickets.length, 'tickets');
+            return (
+              <TicketColumn
+                key={status.id}
+                status={status.id}
+                tickets={statusTickets}
+                onTicketClick={handleTicketClick}
+              />
+            );
+          })}
         </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
@@ -233,8 +318,8 @@ export function TicketBoard({ tickets, setTickets, onTicketUpdated, onTicketDele
       <DragOverlay>
         {activeTicket ? <TicketCard ticket={activeTicket} isOverlay /> : null}
       </DragOverlay>
-      <TicketDetailsDialog 
-        isOpen={!!selectedTicket} 
+      <TicketDetailsDialog
+        isOpen={!!selectedTicket}
         onOpenChange={(isOpen) => {
           if (!isOpen) {
             setSelectedTicket(null);

@@ -37,7 +37,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { type Ticket, type User, type TicketPriority, type Project } from "@/lib/types"
 import { PlusCircle } from "lucide-react"
 
-const PROJECTS_STORAGE_KEY = 'proflow-projects';
+
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
@@ -60,9 +60,11 @@ export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: C
   const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
-    const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
-    if (storedProjects) {
-      setProjects(JSON.parse(storedProjects));
+    if (open) {
+      fetch('/api/projects')
+        .then(response => response.json())
+        .then(data => setProjects(data))
+        .catch(error => console.error('Error fetching projects:', error));
     }
   }, [open]);
 
@@ -104,7 +106,8 @@ export function CreateTicketDialog({ allUsers, onTicketCreated, currentUser }: C
         return;
       }
       
-      const result = await createTicketAction({ ...values, reporter });
+      const { reporterId, ...submitValues } = values;
+      const result = await createTicketAction({ ...submitValues, reporter });
 
       if (result.error) {
         toast({

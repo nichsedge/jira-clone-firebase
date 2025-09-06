@@ -40,10 +40,16 @@ model Project {
   @@map("projects")
 }
 
-enum TicketStatus {
-  OPEN
-  IN_PROGRESS
-  DONE
+model Status {
+  id        String   @id
+  name      String   @unique
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets   Ticket[]
+
+  @@map("statuses")
 }
 
 enum TicketPriority {
@@ -53,17 +59,18 @@ enum TicketPriority {
 }
 
 model Ticket {
-  id          String        @id @default(cuid())
+  id          String   @id @default(cuid())
   title       String
   description String?
-  status      TicketStatus  @default(OPEN)
+  statusId    String?
+  status      Status?  @relation(fields: [statusId], references: [id], onDelete: SetNull)
   priority    TicketPriority @default(MEDIUM)
   projectId   String
-  project     Project       @relation(fields: [projectId], references: [id])
+  project     Project  @relation(fields: [projectId], references: [id])
   assigneeId  String?
-  assignee    User?         @relation("TicketAssignee", fields: [assigneeId], references: [id])
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  assignee    User?    @relation("TicketAssignee", fields: [assigneeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@map("tickets")
 }

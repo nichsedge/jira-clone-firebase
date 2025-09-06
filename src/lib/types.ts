@@ -13,14 +13,20 @@ export type User = {
 export type Project = {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
 };
+
+export interface Status {
+  id: string;
+  name: string;
+  color: string;
+}
 
 export type Ticket = {
   id: string;
   title: string;
   description: string;
-  status: TicketStatus;
+  status?: Status;
   category?: string;
   priority: TicketPriority;
   createdAt: Date;
@@ -28,6 +34,7 @@ export type Ticket = {
   assignee?: User;
   reporter: User;
   projectId: string;
+  project?: Project;
 };
 
 export interface EmailCredentials {

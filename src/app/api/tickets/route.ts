@@ -19,11 +19,15 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions) as ExtendedSession;
     if (!session?.user?.id) {
+      console.log('DEBUG: No session or user ID - returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    console.log(`DEBUG: Logged in user: ${session.user.email || session.user.name} (ID: ${session.user.id})`);
+
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('projectId');
+    console.log(`DEBUG: Request projectId: ${projectId || 'none'}`);
 
     let whereClause: any = {};
     if (projectId) {
@@ -39,8 +43,10 @@ export async function GET(request: NextRequest) {
         },
       });
       if (!project) {
+        console.log(`DEBUG: User ${session.user.id} has no access to project ${projectId}`);
         return NextResponse.json({ error: 'Project not found or unauthorized' }, { status: 403 });
       }
+      console.log(`DEBUG: User has access to project ${projectId}`);
     } else {
       // Fetch all tickets for user's accessible projects
       whereClause.project = {
@@ -49,16 +55,23 @@ export async function GET(request: NextRequest) {
           { members: { some: { id: session.user.id } } }
         ]
       };
+      console.log(`DEBUG: whereClause for all projects:`, JSON.stringify(whereClause, null, 2));
     }
+
+    console.log(`DEBUG: Final whereClause:`, JSON.stringify(whereClause, null, 2));
 
     const tickets = await prisma.ticket.findMany({
       where: whereClause,
       include: {
         project: true,
         assignee: true,
-      },
+        status: true,
+      } as any,
       orderBy: { createdAt: 'desc' },
     });
+
+    console.log(`DEBUG: Found ${tickets.length} tickets for user ${session.user.id}`);
+    console.log(`DEBUG: Ticket IDs:`, tickets.map(t => t.id).join(', '));
 
     return NextResponse.json(tickets);
   } catch (error) {
@@ -75,7 +88,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, status, priority, projectId, assigneeId } = body;
+    const { title, description, statusId, priority, projectId, assigneeId } = body;
 
     if (!title || !projectId) {
       return NextResponse.json({ error: 'Title and Project ID are required' }, { status: 400 });
@@ -100,7 +113,7 @@ export async function POST(request: NextRequest) {
       data: {
         title,
         description,
-        status: status || 'OPEN',
+        statusId: statusId || null,
         priority: priority || 'MEDIUM',
         projectId,
         assigneeId: assigneeId || null,
@@ -108,7 +121,8 @@ export async function POST(request: NextRequest) {
       include: {
         project: true,
         assignee: true,
-      },
+        status: true,
+      } as any,
     });
 
     return NextResponse.json(ticket, { status: 201 });
@@ -126,7 +140,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, title, description, status, priority, assigneeId } = body;
+    const { id, title, description, statusId, priority, assigneeId } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Ticket ID is required' }, { status: 400 });
@@ -161,7 +175,7 @@ export async function PUT(request: NextRequest) {
       data: {
         title,
         description,
-        status,
+        statusId,
         priority,
         assigneeId,
         updatedAt: new Date(),
@@ -169,7 +183,8 @@ export async function PUT(request: NextRequest) {
       include: {
         project: true,
         assignee: true,
-      },
+        status: true,
+      } as any,
     });
 
     return NextResponse.json(updatedTicket);

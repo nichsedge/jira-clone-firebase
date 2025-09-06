@@ -11,9 +11,6 @@ import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { GripVertical } from "lucide-react";
 import { useState, useEffect } from "react";
-import { initialProjects } from "@/data/tickets";
-
-const PROJECTS_STORAGE_KEY = 'proflow-projects';
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -34,12 +31,10 @@ export function TicketCard({ ticket, onClick, isOverlay }: TicketCardProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   
   useEffect(() => {
-    const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
-    if (storedProjects) {
-        setProjects(JSON.parse(storedProjects));
-    } else {
-        setProjects(initialProjects);
-    }
+    fetch('/api/projects')
+      .then(response => response.json())
+      .then(data => setProjects(data))
+      .catch(error => console.error('Error fetching projects:', error));
   }, []);
 
   const style = {
@@ -55,7 +50,10 @@ export function TicketCard({ ticket, onClick, isOverlay }: TicketCardProps) {
     onClick?.(ticket);
   };
 
-  const project = projects.find(p => p.id === ticket.projectId);
+  // Use project data from API if available, otherwise fallback to localStorage lookup
+  const projectFromApi = ticket.project;
+  const projectFromStorage = projects.find(p => p.id === ticket.projectId);
+  const project = projectFromApi || projectFromStorage;
   
   const Component = (
      <div

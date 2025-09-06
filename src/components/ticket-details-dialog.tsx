@@ -52,12 +52,10 @@ import { type Ticket, type User, type TicketStatus, type Project, EmailSettings 
 import { format, formatDistanceToNow } from "date-fns";
 import { User as UserIcon, Calendar, Tag, ArrowUp, Milestone, Pencil, Trash2, FolderKanban, MessageSquare } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import { allUsers, initialProjects } from "@/data/tickets"; 
-import { initialStatuses } from "@/data/statuses";
+
 import { getEmailSettings } from "@/lib/email-settings";
 
-const STATUSES_STORAGE_KEY = 'proflow-statuses';
-const PROJECTS_STORAGE_KEY = 'proflow-projects';
+
 
 interface TicketDetailsDialogProps {
   ticket: Ticket | null;
@@ -82,18 +80,22 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   const { toast } = useToast();
-  const [statuses, setStatuses] = useState<TicketStatus[]>(initialStatuses);
-  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [statuses, setStatuses] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
 
   useEffect(() => {
-    const storedStatuses = localStorage.getItem(STATUSES_STORAGE_KEY);
-    if (storedStatuses) {
-      setStatuses(JSON.parse(storedStatuses));
-    }
-     const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
-    if (storedProjects) {
-        setProjects(JSON.parse(storedProjects));
+    if (isOpen) {
+      Promise.all([
+        fetch('/api/statuses').then(res => res.json()),
+        fetch('/api/projects').then(res => res.json()),
+        fetch('/api/users').then(res => res.json())
+      ]).then(([statusesData, projectsData, usersData]) => {
+        setStatuses(statusesData);
+        setProjects(projectsData);
+        setAllUsers(usersData);
+      }).catch(error => console.error('Error fetching data:', error));
     }
     setEmailSettings(getEmailSettings());
   }, [isOpen]);
@@ -107,9 +109,9 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
       form.reset({
         title: ticket.title,
         description: ticket.description,
-        status: ticket.status,
+        status: typeof ticket.status === 'string' ? ticket.status : (ticket.status as any)?.name || '',
         priority: ticket.priority,
-        assigneeId: ticket.assignee?.id,
+        assigneeId: ticket.assignee?.id || undefined,
         category: ticket.category,
         projectId: ticket.projectId,
       });
@@ -127,9 +129,17 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     if (!ticket) return;
 
     startTransition(async () => {
-       const result = await updateTicketAction({ 
-        id: ticket.id, 
-        ...values, 
+       // Map status ID to name for the action
+       const statusName = statuses.find(s => s.id === values.status)?.name || values.status;
+       const result = await updateTicketAction({
+        id: ticket.id,
+        title: values.title,
+        description: values.description,
+        status: statusName,
+        priority: values.priority,
+        assigneeId: values.assigneeId === 'unassigned' ? undefined : values.assigneeId || undefined,
+        category: values.category,
+        projectId: values.projectId,
         reporter: ticket.reporter,
         createdAt: ticket.createdAt,
         emailSettings: emailSettings,
@@ -273,7 +283,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                             </FormControl>
                             <SelectContent>
                             {statuses.map(status => (
-                                <SelectItem key={status} value={status}>{status}</SelectItem>
+                                <SelectItem key={status.id} value={status.id}>{status.name}</SelectItem>
                             ))}
                             </SelectContent>
                         </Select>
@@ -384,7 +394,13 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                      <div className="rounded-lg border bg-muted/50 p-4 space-y-4">
                         <div className="space-y-2">
                             <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><Milestone className="w-4 h-4"/> Status</h4>
-                            <Badge variant="secondary">{ticket.status}</Badge>
+                            <Badge variant="secondary">
+                              {(() => {
+                                const statusValue = ticket.status as any;
+                                console.log('Dialog rendering status for ticket', ticket.id, ':', statusValue, 'Type:', typeof statusValue, 'Is object:', typeof statusValue === 'object');
+                                return typeof statusValue === 'object' ? statusValue.name || 'Unknown' : statusValue;
+                              })()}
+                            </Badge>
                         </div>
                         <div className="space-y-2">
                             <h4 className="font-semibold flex items-center gap-2 text-muted-foreground text-sm"><FolderKanban className="w-4 h-4"/> Project</h4>
@@ -436,11 +452,17 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                                 <span className="font-semibold text-muted-foreground text-sm">Reporter</span>
                             </div>
                             <div className="flex items-center gap-2 pl-2">
-                                <Avatar className="h-7 w-7">
-                                    <AvatarImage src={ticket.reporter.avatarUrl} alt={ticket.reporter.name} data-ai-hint="person avatar" />
-                                    <AvatarFallback>{ticket.reporter.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm">{ticket.reporter.name}</span>
+                                {ticket.reporter ? (
+                                    <>
+                                        <Avatar className="h-7 w-7">
+                                            <AvatarImage src={ticket.reporter.avatarUrl} alt={ticket.reporter.name} data-ai-hint="person avatar" />
+                                            <AvatarFallback>{ticket.reporter.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <span className="text-sm">{ticket.reporter.name}</span>
+                                    </>
+                                ) : (
+                                    <span className="text-sm text-muted-foreground pl-7">Unknown Reporter</span>
+                                )}
                             </div>
                         </div>
                     </div>

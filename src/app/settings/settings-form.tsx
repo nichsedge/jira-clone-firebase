@@ -65,16 +65,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
 import { useRouter } from "next/navigation";
 import { Ticket, TicketStatus, User, EmailSettings } from "@/lib/types";
-import { initialStatuses } from "@/data/statuses";
-import { allUsers as initialAllUsers } from "@/data/tickets";
+
 import { syncEmailsAction } from "@/app/actions";
 import { EmailSettingsForm } from "./email-settings-form";
 import { getEmailSettings } from "@/lib/email-settings";
 
-const STATUSES_STORAGE_KEY = 'proflow-statuses';
-const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
-const USERS_STORAGE_KEY = 'proflow-users';
-const TICKETS_STORAGE_KEY = 'proflow-tickets';
+
 
 
 interface SortableStatusItemProps {
@@ -128,46 +124,33 @@ export function SettingsForm() {
 
   useEffect(() => {
     setIsClient(true);
-    const storedStatuses = localStorage.getItem(STATUSES_STORAGE_KEY);
-    if (storedStatuses) {
+    const loadData = async () => {
       try {
-        const parsedStatuses = JSON.parse(storedStatuses);
-        if (Array.isArray(parsedStatuses)) {
-            setStatuses(parsedStatuses);
-        } else {
-            setStatuses(initialStatuses);
+        // Load statuses from API
+        const statusesRes = await fetch('/api/statuses');
+        if (statusesRes.ok) {
+          const statusesData = await statusesRes.json();
+          setStatuses(statusesData.map(s => s.id));
         }
-      } catch {
-        setStatuses(initialStatuses);
+
+        // Load users from API
+        const usersRes = await fetch('/api/users');
+        if (usersRes.ok) {
+          const users = await usersRes.json();
+          setAllUsers(users);
+          if (users.length > 0) {
+            setCurrentUser(users[0]);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading settings data:', error);
       }
-    } else {
-      setStatuses(initialStatuses);
-    }
-    
-    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    const users = storedUsers ? JSON.parse(storedUsers) : initialAllUsers;
-    setAllUsers(users);
+    };
 
-    const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-    if(storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    } else if (users.length > 0) {
-      setCurrentUser(users[0]);
-    }
-
+    loadData();
   }, []);
 
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem(STATUSES_STORAGE_KEY, JSON.stringify(statuses));
-    }
-  }, [statuses, isClient]);
-
-  useEffect(() => {
-    if (isClient && currentUser) {
-      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
-    }
-  }, [currentUser, isClient]);
+  
 
   const handleAddStatus = () => {
     if (newStatus.trim() && !statuses.includes(newStatus.trim())) {

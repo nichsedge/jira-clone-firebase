@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
 import { type Ticket, type User, type EmailSettings } from "@/lib/types";
-import { initialTickets, allUsers as initialAllUsers } from "@/data/tickets";
+
 import { TicketBoard } from "@/components/ticket-board";
 import { CreateTicketDialog } from "@/components/create-ticket-dialog";
 import { UserNav } from "@/components/user-nav";
@@ -42,7 +42,6 @@ import { Logo } from "@/components/logo";
 import { syncEmailsAction } from "@/app/actions";
 import { getEmailSettings } from "@/lib/email-settings";
 
-const TICKETS_STORAGE_KEY = 'proflow-tickets';
 const CURRENT_USER_STORAGE_KEY = 'proflow-current-user';
 const USERS_STORAGE_KEY = 'proflow-users';
 
@@ -50,10 +49,10 @@ export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isClient, setIsClient] = useState(false)
   const [searchTerm, setSearchTerm] = useState("");
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
   const [isSyncing, startSyncTransition] = useTransition();
   const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
   const { toast } = useToast();
@@ -69,60 +68,46 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsClient(true)
-    const storedTickets = localStorage.getItem(TICKETS_STORAGE_KEY);
-    if (storedTickets) {
-      const parsedTickets = JSON.parse(storedTickets).map((t: any) => ({
-        ...t,
-        createdAt: new Date(t.createdAt),
-        updatedAt: new Date(t.updatedAt),
-      }));
-      setTickets(parsedTickets);
-    } else {
-      setTickets(initialTickets);
-    }
+    
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
 
-    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    const users = storedUsers ? JSON.parse(storedUsers) : initialAllUsers;
-    setAllUsers(users);
+        // Load tickets from API
+        const ticketsRes = await fetch('/api/tickets');
+        if (ticketsRes.ok) {
+          const fetchedTickets = await ticketsRes.json();
+          console.log('DEBUG: Fetched tickets from API (dashboard):', fetchedTickets);
+          console.log('DEBUG: Tickets length (dashboard):', fetchedTickets.length);
+          if (fetchedTickets.length > 0) {
+            console.log('DEBUG: First ticket status (dashboard):', fetchedTickets[0]?.status);
+            console.log('DEBUG: First ticket status type (dashboard):', typeof fetchedTickets[0]?.status);
+          }
+          setTickets(fetchedTickets);
+        } else {
+          console.error('DEBUG: Tickets API failed with status (dashboard):', ticketsRes.status);
+        }
 
-    // Set current user from session if available
-    if (session?.user?.email) {
-      const userFromSession = users.find((u: User) => u.email === session.user!.email);
-      if (userFromSession) {
-        setCurrentUser(userFromSession);
-      } else {
-        // Fallback to first user
-        setCurrentUser(users[0]);
+        // Load users from API
+        const usersRes = await fetch('/api/users');
+        if (usersRes.ok) {
+          const users = await usersRes.json();
+          setAllUsers(users);
+        }
+        setEmailSettings(getEmailSettings());
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setIsLoading(false);
       }
-    } else {
-      const storedUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-      if(storedUser) {
-        setCurrentUser(JSON.parse(storedUser));
-      } else if (users.length > 0) {
-        setCurrentUser(users[0]);
-      }
-    }
-    setEmailSettings(getEmailSettings());
+    };
 
-  }, [session])
-
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(tickets));
+    if (session) {
+      loadData();
     }
-  }, [tickets, isClient]);
+  }, [session]); // Depend on session to ensure it's ready
+
   
-  useEffect(() => {
-    if (isClient) {
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(allUsers));
-    }
-   }, [allUsers, isClient]);
-
-   useEffect(() => {
-    if (isClient && currentUser) {
-      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(currentUser));
-    }
-  }, [currentUser, isClient]);
 
   const filteredTickets = useMemo(() => {
     if (!searchTerm) return tickets;
@@ -238,7 +223,7 @@ export default function Dashboard() {
         </SidebarContent>
         <SidebarFooter>
             <div className="flex items-center gap-2 p-2">
-                 {isClient && currentUser && <UserNav users={allUsers} currentUser={currentUser} onUserChange={setCurrentUser} />}
+                 {isClient && session && <UserNav session={session} />}
             </div>
              <SidebarMenu>
                 <SidebarMenuItem>
@@ -287,14 +272,20 @@ export default function Dashboard() {
                     </>
                 )}
               </Button>
-               {isClient && currentUser && <CreateTicketDialog allUsers={allUsers} onTicketCreated={handleTicketCreated} currentUser={currentUser} />}
+               {isClient && session && <CreateTicketDialog allUsers={allUsers} onTicketCreated={handleTicketCreated} currentUser={{ id: session.user.id, name: session.user.name || 'User', email: session.user.email || '', avatarUrl: session.user.image || '' }} />}
           </div>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           <div className="flex items-center">
              <h1 className="text-lg font-semibold md:text-2xl md:hidden">Dashboard</h1>
           </div>
-          {isClient && <TicketBoard tickets={filteredTickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} onTicketDeleted={handleTicketDeleted} />}
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <p>Loading tickets...</p>
+            </div>
+          ) : (
+            isClient && <TicketBoard tickets={filteredTickets} setTickets={setTickets} onTicketUpdated={handleTicketUpdated} onTicketDeleted={handleTicketDeleted} />
+          )}
         </main>
       </SidebarInset>
     </SidebarProvider>
