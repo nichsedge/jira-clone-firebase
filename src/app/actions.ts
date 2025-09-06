@@ -7,6 +7,7 @@ import { authOptions } from '@/lib/auth';
 import { z } from 'zod';
 import { sendMail } from '@/services/email-sender';
 import { fetchUnreadEmails } from '@/services/email-service';
+import { getEmailSettings } from '@/lib/email-settings';
 import bcrypt from 'bcryptjs';
 import type { Session } from 'next-auth';
 
@@ -547,119 +548,173 @@ export async function deleteTicketAction(values: z.infer<typeof deleteTicketSche
 export async function syncEmailsAction(existingUsers: User[], emailSettings: EmailSettings): Promise<{ tickets?: Ticket[], newUsers?: User[], error?: string, count: number }> {
   const session = await getServerSession(authOptions) as ExtendedSession;
   if (!session?.user?.id) {
+    console.log('syncEmailsAction: Unauthorized access');
     return { error: 'Unauthorized', count: 0 };
   }
 
+  console.log('syncEmailsAction: Started for user', session.user.id);
+  console.log('syncEmailsAction: Received', existingUsers?.length || 0, 'existing users');
+  console.log('syncEmailsAction: Email settings provided:', {
+    imap: emailSettings?.imap ? { host: emailSettings.imap.host, user: emailSettings.imap.user, hasPass: !!emailSettings.imap.pass } : 'MISSING',
+    smtp: emailSettings?.smtp ? { host: emailSettings.smtp.host, user: emailSettings.smtp.user } : 'MISSING'
+  });
+
   try {
-      if (!emailSettings?.imap) {
-          return { error: 'IMAP settings are not configured.', count: 0 };
+    // Fallback to database settings if client-side settings are incomplete
+    let finalEmailSettings = emailSettings;
+    if (!finalEmailSettings?.imap?.host || !finalEmailSettings.imap.user) {
+      console.log('syncEmailsAction: Client settings incomplete, loading from database');
+      const dbSettings = await getEmailSettings();
+      if (dbSettings) {
+        finalEmailSettings = dbSettings;
+        console.log('syncEmailsAction: Loaded complete settings from DB');
+      } else {
+        return { error: 'No email settings available. Please save your email credentials first.', count: 0 };
       }
-      const emails = await fetchUnreadEmails(emailSettings.imap);
-      const ticketEmails = emails.filter(email => email.subject?.includes('[TICKET]'));
+    }
 
-      if (ticketEmails.length === 0) {
-          return { tickets: [], newUsers: [], count: 0 };
-      }
+    if (!finalEmailSettings?.imap?.host || !finalEmailSettings.imap.port || !finalEmailSettings.imap.user || !finalEmailSettings.imap.pass) {
+      console.log('syncEmailsAction: IMAP settings still incomplete after fallback:', finalEmailSettings?.imap);
+      return { error: 'IMAP settings are not configured. Please save your email credentials first.', count: 0 };
+    }
 
-      const newTickets: Ticket[] = [];
-      const newUsers: User[] = [];
+    console.log('syncEmailsAction: Using IMAP config:', {
+      host: finalEmailSettings.imap.host,
+      port: finalEmailSettings.imap.port,
+      user: finalEmailSettings.imap.user,
+      hasPass: !!finalEmailSettings.imap.pass,
+      tls: finalEmailSettings.imap.tls
+    });
 
-      for (const email of ticketEmails) {
-          const title = email.subject?.replace("[TICKET]", "").trim() || "New Ticket from Email";
-          const description = email.text || "No description provided.";
-          
-          const fromEmail = email.from?.value[0]?.address;
-          if (!fromEmail) {
-              console.warn("Skipping email without a 'from' address:", email.messageId);
-              continue;
-          }
+    const emails = await fetchUnreadEmails(finalEmailSettings.imap);
+    console.log('syncEmailsAction: Fetched', emails.length, 'unread emails');
+    
+    const ticketEmails = emails.filter(email => email.subject?.includes('[TICKET]'));
+    console.log('syncEmailsAction: Found', ticketEmails.length, 'ticket emails');
 
-          let reporter = await prisma.user.findUnique({
-            where: { email: fromEmail },
-          });
+    if (ticketEmails.length === 0) {
+        console.log('syncEmailsAction: No ticket emails found');
+        return { tickets: [], newUsers: [], count: 0 };
+    }
 
-          let reporterFrontend: User;
+    const newTickets: Ticket[] = [];
+    const newUsers: User[] = [];
 
-          if (!reporter) {
-              // Create new user (for demo, no password, or set default; in real, send email for setup)
-              const fromName = email.from?.value[0]?.name || fromEmail.split('@')[0] || "Email User";
-              const hashedPassword = await bcrypt.hash('defaultPassword123', 12); // Temp default
-              const createdReporter = await prisma.user.create({
-                data: {
-                  name: fromName,
-                  email: fromEmail,
-                  hashedPassword,
-                  image: `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${fromName.charAt(0).toUpperCase()}`,
-                },
-              });
+    for (const email of ticketEmails) {
+        console.log('syncEmailsAction: Processing ticket email:', email.subject?.substring(0, 50));
+        
+        const title = email.subject?.replace("[TICKET]", "").trim() || "New Ticket from Email";
+        const description = email.text || "No description provided.";
+        
+        const fromEmail = email.from?.value[0]?.address;
+        if (!fromEmail) {
+            console.warn("syncEmailsAction: Skipping email without a 'from' address:", email.messageId);
+            continue;
+        }
 
-              reporterFrontend = {
-                id: createdReporter.id,
-                name: createdReporter.name || 'Unknown',
-                email: createdReporter.email || fromEmail,
-                image: createdReporter.image || '',
-                priority: 'MEDIUM',
-              };
+        let reporter = await prisma.user.findUnique({
+          where: { email: fromEmail },
+        });
 
-              const newUser: User = reporterFrontend;
-              newUsers.push(newUser);
-          } else {
-              reporterFrontend = {
-                id: reporter.id,
-                name: reporter.name || 'Unknown',
-                email: reporter.email || '',
-                image: reporter.image || '',
-                priority: 'MEDIUM',
-              };
-          }
+        let reporterFrontend: User;
 
-          const now = new Date();
+        if (!reporter) {
+            // Create new user (for demo, no password, or set default; in real, send email for setup)
+            const fromName = email.from?.value[0]?.name || fromEmail.split('@')[0] || "Email User";
+            const hashedPassword = await bcrypt.hash('defaultPassword123', 12); // Temp default
+            const createdReporter = await prisma.user.create({
+              data: {
+                name: fromName,
+                email: fromEmail,
+                hashedPassword,
+                image: `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${fromName.charAt(0).toUpperCase()}`,
+              },
+            });
 
-          const toDoStatus = await prisma.status.findFirst({
-            where: { name: 'To Do' },
-          });
+            reporterFrontend = {
+              id: createdReporter.id,
+              name: createdReporter.name || 'Unknown',
+              email: createdReporter.email || fromEmail,
+              image: createdReporter.image || '',
+              priority: 'MEDIUM',
+            };
 
-          if (!toDoStatus) {
-            console.error('Default status "To Do" not found during email sync.');
-            continue; // Skip this email if default status is not found
-          }
+            const newUser: User = reporterFrontend;
+            newUsers.push(newUser);
+            console.log('syncEmailsAction: Created new user:', newUser.id);
+        } else {
+            reporterFrontend = {
+              id: reporter.id,
+              name: reporter.name || 'Unknown',
+              email: reporter.email || '',
+              image: reporter.image || '',
+              priority: 'MEDIUM',
+            };
+            console.log('syncEmailsAction: Using existing user:', reporterFrontend.id);
+        }
 
-          const newTicket = await prisma.ticket.create({
-            data: {
-              title,
-              description: description || undefined,
-              status: { connect: { id: toDoStatus.id } } as any,
-              priority: 'MEDIUM' as any,
-              project: { connect: { id: 'PROJ-1' } } as any,
-              updatedAt: now,
-            },
-            include: {
-              project: true,
-              assignee: true,
-              status: true, // Include status to map back to frontend type
-            } as any,
-          });
-          
-          const ticket: Ticket = {
-            id: newTicket.id,
-            title: newTicket.title || '',
-            description: newTicket.description || '',
-            status: newTicket.status as any,
-            category: "From Email",
-            priority: (displayPriorityMap[newTicket.priority] || 'medium') as TicketPriority,
-            createdAt: now,
+        const now = new Date();
+
+        const toDoStatus = await prisma.status.findFirst({
+          where: { name: 'To Do' },
+        });
+
+        if (!toDoStatus) {
+          console.error('syncEmailsAction: Default status "To Do" not found during email sync.');
+          continue; // Skip this email if default status is not found
+        }
+
+        const newTicket = await prisma.ticket.create({
+          data: {
+            title,
+            description: description || undefined,
+            status: { connect: { id: toDoStatus.id } } as any,
+            priority: 'MEDIUM' as any,
+            project: { connect: { id: 'PROJ-1' } } as any,
             updatedAt: now,
-            reporter: reporterFrontend,
-            projectId: newTicket.projectId,
-            project: newTicket.project, // Include project
-            assignee: newTicket.assignee ? { id: newTicket.assignee.id, name: newTicket.assignee.name || 'Unknown', email: newTicket.assignee.email || '', image: newTicket.assignee.image || '', priority: 'MEDIUM' } : undefined,
-          };
-          newTickets.push(ticket);
-      }
+          },
+          include: {
+            project: true,
+            assignee: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true
+              }
+            },
+            status: true, // Include status to map back to frontend type
+          },
+        });
+        
+        const ticket: Ticket = {
+          id: newTicket.id,
+          title: newTicket.title || '',
+          description: newTicket.description || '',
+          status: newTicket.status as any,
+          category: "From Email",
+          priority: (displayPriorityMap[newTicket.priority] || 'medium') as TicketPriority,
+          createdAt: now,
+          updatedAt: now,
+          reporter: reporterFrontend,
+          projectId: newTicket.projectId,
+          project: newTicket.project, // Include project
+          assignee: newTicket.assignee ? {
+            id: (newTicket.assignee as any).id,
+            name: (newTicket.assignee as any).name || 'Unknown',
+            email: (newTicket.assignee as any).email || '',
+            image: (newTicket.assignee as any).image || '',
+            priority: 'MEDIUM'
+          } : undefined,
+        };
+        newTickets.push(ticket);
+        console.log('syncEmailsAction: Created ticket:', ticket.id);
+    }
 
-      return { tickets: newTickets, newUsers, count: newTickets.length };
+    console.log('syncEmailsAction: Sync completed -', newTickets.length, 'tickets,', newUsers.length, 'new users');
+    return { tickets: newTickets, newUsers, count: newTickets.length };
   } catch (error) {
-      console.error('Email sync failed:', error);
+      console.error('syncEmailsAction: Email sync failed:', error);
       if (error instanceof Error) {
           return { error: `Failed to sync emails: ${error.message}`, count: 0 };
       }

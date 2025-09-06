@@ -23,6 +23,15 @@ model User {
   projects      Project[]   @relation("ProjectOwner")
   memberProjects Project[]  @relation("ProjectMembers")
   tickets       Ticket[]    @relation("TicketAssignee")
+  imapHost      String?
+  imapPort      Int?
+  imapUser      String?
+  imapPass      String?
+  imapUseTls    Boolean?
+  smtpHost      String?
+  smtpPort      Int?
+  smtpUser      String?
+  smtpPass      String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

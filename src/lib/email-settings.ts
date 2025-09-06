@@ -1,57 +1,147 @@
 
-'use client';
+'use server';
 
+import { PrismaClient } from '@prisma/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from './auth';
 import { EmailSettings } from './types';
-import { AES, enc } from 'crypto-js';
 
-const ENCRYPTION_KEY = process.env.NEXT_PUBLIC_ENCRYPTION_KEY || 'default-secret-key-that-is-not-very-secret';
-const STORAGE_KEY = 'proflow-email-settings';
+const prisma = new PrismaClient();
 
 /**
- * Saves email settings to localStorage after encrypting them.
+ * Saves email settings to the database for the authenticated user.
  * @param settings - The email settings to save.
  */
-export function saveEmailSettings(settings: EmailSettings): void {
-  if (typeof window !== 'undefined') {
-    try {
-      const ciphertext = AES.encrypt(JSON.stringify(settings), ENCRYPTION_KEY).toString();
-      localStorage.setItem(STORAGE_KEY, ciphertext);
-    } catch (error) {
-      console.error("Could not save email settings:", error);
+export async function saveEmailSettings(settings: EmailSettings) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new Error('Unauthorized');
     }
+
+    console.log('Saving email settings for user:', session.user.id);
+    console.log('IMAP settings:', {
+      host: settings.imap.host,
+      port: settings.imap.port,
+      user: settings.imap.user,
+      tls: settings.imap.tls,
+    });
+    console.log('SMTP settings:', {
+      host: settings.smtp.host,
+      port: settings.smtp.port,
+      user: settings.smtp.user,
+    });
+
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        ...(settings.imap.host && { imapHost: settings.imap.host }),
+        ...(settings.imap.port && { imapPort: settings.imap.port }),
+        ...(settings.imap.user && { imapUser: settings.imap.user }),
+        ...(settings.imap.pass && { imapPass: settings.imap.pass }),
+        ...(settings.imap.tls !== undefined && { imapUseTls: settings.imap.tls }),
+        ...(settings.smtp.host && { smtpHost: settings.smtp.host }),
+        ...(settings.smtp.port && { smtpPort: settings.smtp.port }),
+        ...(settings.smtp.user && { smtpUser: settings.smtp.user }),
+        ...(settings.smtp.pass && { smtpPass: settings.smtp.pass }),
+      } as any,
+    });
+
+    console.log('Email settings saved successfully for user:', session.user.id);
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error saving email settings:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 /**
- * Retrieves and decrypts email settings from localStorage.
- * @returns The decrypted email settings, or null if not found or on error.
+ * Retrieves email settings from the database for the authenticated user.
+ * @returns The email settings or null if not found.
  */
-export function getEmailSettings(): EmailSettings | null {
-  if (typeof window !== 'undefined') {
-    try {
-      const ciphertext = localStorage.getItem(STORAGE_KEY);
-      if (ciphertext === null) {
-        return null;
-      }
-      const bytes = AES.decrypt(ciphertext, ENCRYPTION_KEY);
-      const decryptedData = JSON.parse(bytes.toString(enc.Utf8));
-      return decryptedData;
-    } catch (error) {
-      console.error("Could not retrieve or decrypt email settings:", error);
-      // If decryption fails, it might be because of old data.
-      // We can clear it to prevent persistent errors.
-      localStorage.removeItem(STORAGE_KEY);
+export async function getEmailSettings() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
       return null;
     }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    }) as any;
+
+    if (!user) {
+      return null;
+    }
+
+    const settings = {
+      imap: {
+        host: user.imapHost || '',
+        port: user.imapPort || 993,
+        user: user.imapUser || '',
+        pass: user.imapPass || '',
+        tls: user.imapUseTls || true,
+      },
+      smtp: {
+        host: user.smtpHost || '',
+        port: user.smtpPort || 465,
+        user: user.smtpUser || '',
+        pass: user.smtpPass || '',
+        tls: true, // SMTP TLS is handled differently
+      },
+    };
+
+    console.log('Retrieved email settings for user:', session.user.id);
+    console.log('IMAP settings retrieved:', {
+      host: settings.imap.host,
+      port: settings.imap.port,
+      user: settings.imap.user,
+      hasPass: !!settings.imap.pass,
+      tls: settings.imap.tls,
+    });
+
+    return settings;
+  } catch (error) {
+    console.error('Error retrieving email settings:', error);
+    return null;
+  } finally {
+    await prisma.$disconnect();
   }
-  return null;
 }
 
 /**
- * Removes the email settings from localStorage.
+ * Clears email settings from the database for the authenticated user.
  */
-export function clearEmailSettings(): void {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEY);
+export async function clearEmailSettings() {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new Error('Unauthorized');
+    }
+
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        imapHost: null,
+        imapPort: null,
+        imapUser: null,
+        imapPass: null,
+        imapUseTls: null,
+        smtpHost: null,
+        smtpPort: null,
+        smtpUser: null,
+        smtpPass: null,
+      } as any,
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error clearing email settings:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
   }
 }

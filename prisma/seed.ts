@@ -1,5 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const prisma = new PrismaClient();
 
@@ -10,15 +13,24 @@ async function main() {
   // Create super admin user if not exists
   const adminUser = await prisma.user.upsert({
     where: {
-      email: 'admin@example.com',
+      email: process.env.IMAP_USER,
     },
     update: {},
     create: {
       id: 'ADMIN-1',
       name: 'Super Admin',
-      email: 'admin@example.com',
+      email: process.env.IMAP_USER,
       hashedPassword,
       image: 'https://placehold.co/32x32/E9D5FF/6D28D9/png?text=A',
+      imapHost: process.env.IMAP_HOST,
+      imapPort: parseInt(process.env.IMAP_PORT || '993'),
+      imapUser: process.env.IMAP_USER,
+      imapPass: process.env.IMAP_PASS,
+      imapUseTls: process.env.IMAP_USE_TLS === 'true',
+      smtpHost: process.env.SMTP_HOST,
+      smtpPort: parseInt(process.env.SMTP_PORT || '465'),
+      smtpUser: process.env.SMTP_USER,
+      smtpPass: process.env.SMTP_PASS,
     },
   });
 

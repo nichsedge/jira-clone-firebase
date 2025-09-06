@@ -192,52 +192,65 @@ export function SettingsForm() {
   }
 
   const handleSyncEmails = async () => {
-    const emailSettings = getEmailSettings();
-    if (!emailSettings) {
-        toast({
-            variant: "destructive",
-            title: "Email Sync Not Configured",
-            description: "Please configure and save your email credentials to sync emails.",
-        });
-        return;
-    }
-
-    startSyncTransition(async () => {
-        const result = await syncEmailsAction(allUsers, emailSettings);
-        if (result.error) {
-            toast({
-                variant: "destructive",
-                title: "Uh oh! Something went wrong.",
-                description: result.error,
-            });
-        } else {
-            const ticketCount = result.count || 0;
-            const userCount = result.newUsers?.length || 0;
-
-            let description = `${ticketCount} new ticket(s) created.`;
-            if (userCount > 0) {
-                description += ` ${userCount} new user(s) created.`;
-            }
-
-            toast({
-                title: "Sync Complete!",
-                description: description,
-            });
-            
-            if (result.tickets && result.tickets.length > 0) {
-                const storedTicketsRaw = localStorage.getItem(TICKETS_STORAGE_KEY);
-                const storedTickets = storedTicketsRaw ? JSON.parse(storedTicketsRaw) : [];
-                const updatedTickets = [...result.tickets, ...storedTickets];
-                localStorage.setItem(TICKETS_STORAGE_KEY, JSON.stringify(updatedTickets));
-            }
-            if (result.newUsers && result.newUsers.length > 0) {
-                const updatedUsers = [...allUsers, ...result.newUsers];
-                setAllUsers(updatedUsers);
-                 localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
-            }
-        }
-    });
-};
+      console.log('handleSyncEmails: Starting sync process');
+      
+      // Use saved settings from DB instead of client-side call to avoid hydration issues
+      const [result, setResult] = useState<any>(null);
+      
+      startSyncTransition(async () => {
+          try {
+              console.log('handleSyncEmails: Calling syncEmailsAction with', allUsers.length, 'users');
+              const syncResult = await syncEmailsAction(allUsers, { imap: { host: '', port: 0, user: '', pass: '', tls: false }, smtp: { host: '', port: 0, user: '', pass: '', tls: false } });
+              console.log('handleSyncEmails: Sync result:', syncResult);
+              
+              if (syncResult.error) {
+                  console.error('handleSyncEmails: Sync failed:', syncResult.error);
+                  toast({
+                      variant: "destructive",
+                      title: "Sync Failed",
+                      description: syncResult.error,
+                  });
+                  // Also log to console for easy copying
+                  console.error('EMAIL SYNC ERROR - COPY THIS:\n', syncResult.error);
+              } else {
+                  const ticketCount = syncResult.count || 0;
+                  const userCount = syncResult.newUsers?.length || 0;
+  
+                  let description = `${ticketCount} new ticket(s) created.`;
+                  if (userCount > 0) {
+                      description += ` ${userCount} new user(s) created.`;
+                  }
+  
+                  toast({
+                      title: "Sync Complete!",
+                      description: description,
+                  });
+                  
+                  console.log('EMAIL SYNC SUCCESS - COPY THIS:\nProcessed:', ticketCount, 'tickets,', userCount, 'new users');
+                  
+                  if (syncResult.tickets && syncResult.tickets.length > 0) {
+                      const storedTicketsRaw = localStorage.getItem('tickets');
+                      const storedTickets = storedTicketsRaw ? JSON.parse(storedTicketsRaw) : [];
+                      const updatedTickets = [...syncResult.tickets, ...storedTickets];
+                      localStorage.setItem('tickets', JSON.stringify(updatedTickets));
+                  }
+                  if (syncResult.newUsers && syncResult.newUsers.length > 0) {
+                      const updatedUsers = [...allUsers, ...syncResult.newUsers];
+                      setAllUsers(updatedUsers);
+                      localStorage.setItem('users', JSON.stringify(updatedUsers));
+                  }
+              }
+          } catch (error) {
+              console.error('handleSyncEmails: Unexpected error:', error);
+              toast({
+                  variant: "destructive",
+                  title: "Sync Error",
+                  description: "An unexpected error occurred during sync. Check console for details.",
+              });
+              console.error('EMAIL SYNC UNEXPECTED ERROR - COPY THIS:\n', error);
+          }
+      });
+  };
 
 
   return (

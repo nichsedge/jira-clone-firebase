@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -53,6 +53,7 @@ interface EmailSettingsFormProps {
 
 export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps) {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -63,36 +64,120 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
   });
   
   useEffect(() => {
-    const savedSettings = getEmailSettings();
-    if (savedSettings) {
-      form.reset(savedSettings);
-    }
-  }, [form]);
+    loadSettings();
+  }, []);
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    saveEmailSettings(values);
-    toast({
-      title: "Settings Saved",
-      description: "Your email credentials have been saved securely.",
-    });
+  async function loadSettings() {
+    try {
+      setLoading(true);
+      const savedSettings = await getEmailSettings();
+      if (savedSettings) {
+        form.reset(savedSettings);
+      }
+    } catch (error) {
+      console.error('Error loading email settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load email settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    try {
+      setLoading(true);
+      await saveEmailSettings(values);
+      toast({
+        title: "Settings Saved",
+        description: "Your email credentials have been saved securely.",
+      });
+    } catch (error) {
+      console.error('Error saving email settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save email settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
   
-  function handleClear() {
-    clearEmailSettings();
-    form.reset({
-      smtp: { host: "", port: 587, user: "", pass: "", tls: true },
-      imap: { host: "", port: 993, user: "", pass: "", tls: true },
-    });
-    toast({
-        title: "Settings Cleared",
-        description: "Your email credentials have been removed.",
-    });
+  async function handleClear() {
+    try {
+      setLoading(true);
+      await clearEmailSettings();
+      form.reset({
+        smtp: { host: "", port: 587, user: "", pass: "", tls: true },
+        imap: { host: "", port: 993, user: "", pass: "", tls: true },
+      });
+      toast({
+          title: "Settings Cleared",
+          description: "Your email credentials have been removed.",
+      });
+    } catch (error) {
+      console.error('Error clearing email settings:', error);
+      toast({
+        title: "Error",
+        description: "Failed to clear email settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   }
+
+  async function handleSync() {
+      console.log('Sync button clicked');
+      try {
+        setLoading(true);
+        console.log('Making POST request to /api/email-sync');
+        const response = await fetch('/api/email-sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+  
+        console.log('Response status:', response.status);
+        const result = await response.json();
+        console.log('Full response result:', result);
+  
+        if (response.ok) {
+          toast({
+            title: "Sync Successful",
+            description: `Processed ${result.processed || 0} emails, created ${result.created || 0} new tickets.`,
+          });
+          onSync?.();
+        } else {
+          const errorMessage = result.error || 'Failed to sync emails.';
+          const details = result.details ? ` Details: ${result.details}` : '';
+          console.error('Sync failed with error:', errorMessage, details);
+          toast({
+            title: "Sync Failed",
+            description: `${errorMessage}${details}`,
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error('Network error during sync:', error);
+        toast({
+          title: "Sync Error",
+          description: "Failed to sync emails. Please check your connection and server logs.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    }
 
   return (
     <Card>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className={loading ? "pointer-events-none opacity-50" : ""}>
           <CardHeader>
             <CardTitle>Email Integration</CardTitle>
             <CardDescription>
@@ -109,7 +194,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                   <FormItem>
                     <FormLabel>SMTP Host</FormLabel>
                     <FormControl>
-                      <Input placeholder="smtp.example.com" {...field} />
+                      <Input placeholder="smtp.gmail.com" {...field} disabled={loading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -122,7 +207,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                   <FormItem>
                     <FormLabel>SMTP Port</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="587" {...field} />
+                      <Input type="number" placeholder="465" {...field} disabled={loading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -135,7 +220,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="your.email@example.com" {...field} />
+                      <Input placeholder="your.email@gmail.com" {...field} disabled={loading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -148,7 +233,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" {...field} />
+                      <Input type="password" {...field} disabled={loading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -166,6 +251,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                         <Switch
                           checked={field.value}
                           onCheckedChange={field.onChange}
+                          disabled={loading}
                         />
                       </FormControl>
                     </FormItem>
@@ -181,7 +267,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                   <FormItem>
                     <FormLabel>IMAP Host</FormLabel>
                     <FormControl>
-                      <Input placeholder="imap.example.com" {...field} />
+                      <Input placeholder="imap.gmail.com" {...field} disabled={loading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -194,7 +280,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                   <FormItem>
                     <FormLabel>IMAP Port</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="993" {...field} />
+                      <Input type="number" placeholder="993" {...field} disabled={loading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -207,7 +293,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                   <FormItem>
                     <FormLabel>Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="your.email@example.com" {...field} />
+                      <Input placeholder="your.email@gmail.com" {...field} disabled={loading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -220,7 +306,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" {...field} />
+                      <Input type="password" {...field} disabled={loading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -238,6 +324,7 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                         <Switch
                           checked={field.value}
                           onCheckedChange={field.onChange}
+                          disabled={loading}
                         />
                       </FormControl>
                     </FormItem>
@@ -245,15 +332,15 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                 />
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between border-t pt-6">
-             <Button type="button" variant="outline" onClick={onSync} disabled={isSyncing}>
-                {isSyncing ? (
+          <div className="flex justify-between border-t pt-6">
+             <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSync(); }} disabled={loading || isSyncing}>
+                {(loading || isSyncing) ? (
                     <>
                     <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Syncing...
+                    {isSyncing ? "Syncing..." : "Loading..."}
                     </>
                 ) : (
                     <>
@@ -263,13 +350,15 @@ export function EmailSettingsForm({ onSync, isSyncing }: EmailSettingsFormProps)
                 )}
               </Button>
             <div className="flex gap-2">
-                <Button type="button" variant="ghost" onClick={handleClear}>
+                <Button type="button" variant="ghost" onClick={handleClear} disabled={loading}>
                     <Trash2 className="mr-2 h-4 w-4" />
                     Clear Settings
                 </Button>
-                <Button type="submit">Save Settings</Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Saving..." : "Save Settings"}
+                </Button>
             </div>
-          </CardFooter>
+          </div>
         </form>
       </Form>
     </Card>
