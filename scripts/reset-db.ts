@@ -38,7 +38,7 @@ async function main() {
     
     // Drop enum types (PostgreSQL specific)
     console.log('🗑️  Dropping enum types...');
-    const enumTypes = ['TicketStatus', 'TicketPriority'];
+    const enumTypes = ['TicketStatus', 'TicketPriority', 'UserPriority'];
     for (const enumType of enumTypes) {
       try {
         await prisma.$executeRawUnsafe(`DROP TYPE IF EXISTS "${enumType}" CASCADE;`);
@@ -50,11 +50,11 @@ async function main() {
     
     console.log('✅ All tables and types dropped');
     
-    // Run migrations to recreate schema
-    console.log('🔄 Running migrations...');
-    execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-    
-    console.log('✅ Migrations complete');
+    // Push schema to recreate tables
+    console.log('🔄 Pushing schema to database...');
+    execSync('npx prisma db push', { stdio: 'inherit' });
+  
+    console.log('✅ Schema sync complete');
     
     // Run seed
     console.log('🌱 Running seed...');

@@ -33,16 +33,16 @@ export function UserNav({ session }: { session: any }) {
         <DropdownMenuTrigger asChild>
             <Button
                 variant="ghost"
-                className="flex items-center gap-3 px-2 py-1.5 h-auto rounded-md hover:bg-accent hover:text-accent-foreground"
+                className="relative h-9 w-auto overflow-hidden rounded-md px-3 py-2 hover:bg-accent hover:text-accent-foreground"
                 size="sm"
             >
-                <Avatar className="h-7 w-7">
+                <Avatar className="h-8 w-8">
                     <AvatarImage src={session?.user?.image} alt={session?.user?.name || 'User'} />
                     <AvatarFallback className="text-xs font-medium">
                         {session?.user?.name?.charAt(0).toUpperCase() || 'U'}
                     </AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col items-start text-left min-w-0 flex-1">
+                <div className="ml-2 flex flex-col items-start text-left min-w-0 flex-1">
                     <span className="font-medium text-sm truncate">
                         {session?.user?.name || 'User'}
                     </span>
@@ -50,11 +50,10 @@ export function UserNav({ session }: { session: any }) {
                         {session?.user?.email || 'user@example.com'}
                     </span>
                 </div>
-                <UserIcon className="h-4 w-4 opacity-50" />
             </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="px-1.5 py-1.5">
+        <DropdownMenuContent className="w-64" align="end" forceMount>
+            <DropdownMenuLabel className="px-2 py-3">
                 <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none truncate">
                         {session?.user?.name}
@@ -66,9 +65,9 @@ export function UserNav({ session }: { session: any }) {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-                <DropdownMenuItem onClick={handleSignOut}>
+                <DropdownMenuItem className="px-2 py-1.5 cursor-pointer" onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
+                  <span>Sign out</span>
                 </DropdownMenuItem>
             </DropdownMenuGroup>
         </DropdownMenuContent>

@@ -67,9 +67,9 @@ interface TicketDetailsDialogProps {
 
 const formSchema = z.object({
   title: z.string().min(1, { message: "Title is required." }),
-  description: z.string().min(1, { message: "Description is required." }),
+  description: z.string().optional(),
   status: z.string().min(1, { message: "Status is required."}),
-  priority: z.enum(['Low', 'Medium', 'High']),
+  priority: z.enum(['low', 'medium', 'high']),
   assigneeId: z.string().optional(),
   category: z.string().optional(),
   projectId: z.string().min(1, { message: "Project is required." }),
@@ -90,7 +90,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
       Promise.all([
         fetch('/api/statuses').then(res => res.json()),
         fetch('/api/projects').then(res => res.json()),
-        fetch('/api/users').then(res => res.json())
+        fetch('/api/users').then(res => res.json().then(data => Array.isArray(data) ? data : []))
       ]).then(([statusesData, projectsData, usersData]) => {
         setStatuses(statusesData);
         setProjects(projectsData);
@@ -108,11 +108,11 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     if (ticket) {
       form.reset({
         title: ticket.title,
-        description: ticket.description,
-        status: typeof ticket.status === 'string' ? ticket.status : (ticket.status as any)?.name || '',
-        priority: ticket.priority,
+        description: ticket.description || '',
+        status: typeof ticket.status === 'string' ? ticket.status : (ticket.status as any)?.id || '',
+        priority: ticket.priority.toLowerCase() as 'low' | 'medium' | 'high',
         assigneeId: ticket.assignee?.id || undefined,
-        category: ticket.category,
+        category: ticket.category || '',
         projectId: ticket.projectId,
       });
     }
@@ -122,7 +122,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
     return null;
   }
 
-  const assignee = allUsers.find(u => u.id === ticket.assignee?.id);
+  const assignee = Array.isArray(allUsers) ? allUsers.find(u => u.id === ticket.assignee?.id) : null;
   const project = projects.find(p => p.id === ticket.projectId);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
@@ -134,11 +134,11 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
        const result = await updateTicketAction({
         id: ticket.id,
         title: values.title,
-        description: values.description,
+        description: values.description || undefined,
         status: statusName,
-        priority: values.priority,
+        priority: values.priority.toUpperCase() as any,
         assigneeId: values.assigneeId === 'unassigned' ? undefined : values.assigneeId || undefined,
-        category: values.category,
+        category: values.category || undefined,
         projectId: values.projectId,
         reporter: ticket.reporter,
         createdAt: ticket.createdAt,
@@ -304,8 +304,10 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                            {(['Low', 'Medium', 'High'] as const).map(priority => (
-                                <SelectItem key={priority} value={priority}>{priority}</SelectItem>
+                            {(['low', 'medium', 'high'] as const).map(priority => (
+                                <SelectItem key={priority} value={priority}>
+                                    {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                                </SelectItem>
                             ))}
                             </SelectContent>
                         </Select>
@@ -412,9 +414,9 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                             variant="outline"
                             className={cn(
                                 "capitalize",
-                                ticket.priority === "High" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
-                                ticket.priority === "Medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
-                                ticket.priority === "Low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
+                                ticket.priority === "high" && "border-red-500/60 text-red-500 dark:border-red-400/50 dark:text-red-400",
+                                ticket.priority === "medium" && "border-yellow-500/60 text-yellow-500 dark:border-yellow-400/50 dark:text-yellow-400",
+                                ticket.priority === "low" && "border-green-500/60 text-green-500 dark:border-green-400/50 dark:text-green-400"
                             )}
                             >
                             {ticket.priority}
@@ -436,7 +438,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                                 {assignee ? (
                                     <>
                                         <Avatar className="h-7 w-7">
-                                            <AvatarImage src={assignee.avatarUrl} alt={assignee.name} data-ai-hint="person avatar"/>
+                                            <AvatarImage src={assignee?.avatarUrl || undefined} alt={assignee.name} data-ai-hint="person avatar"/>
                                             <AvatarFallback>{assignee.name.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <span className="text-sm">{assignee.name}</span>
@@ -455,7 +457,7 @@ export function TicketDetailsDialog({ ticket, isOpen, onOpenChange, onTicketUpda
                                 {ticket.reporter ? (
                                     <>
                                         <Avatar className="h-7 w-7">
-                                            <AvatarImage src={ticket.reporter.avatarUrl} alt={ticket.reporter.name} data-ai-hint="person avatar" />
+                                            <AvatarImage src={ticket.reporter?.avatarUrl || undefined} alt={ticket.reporter.name} data-ai-hint="person avatar" />
                                             <AvatarFallback>{ticket.reporter.name.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <span className="text-sm">{ticket.reporter.name}</span>

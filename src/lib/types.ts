@@ -3,8 +3,11 @@ export type TicketPriority = 'low' | 'medium' | 'high';
 export type User = {
   id: string;
   name: string;
+  avatarUrl?: string | null;
   image?: string | null;
   email?: string;
+  status?: Status | null;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
 };
 
 export type Project = {

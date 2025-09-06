@@ -2,10 +2,18 @@
 "use client"
 
 import { useState, useEffect, useTransition } from "react"
+import { useSession } from "next-auth/react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -23,12 +31,14 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { User } from "@/lib/types"
+import { User, Status } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar"
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email." }),
+  statusId: z.string().optional(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).default('MEDIUM'),
 })
 
 interface AddUserDialogProps {
@@ -40,33 +50,82 @@ interface AddUserDialogProps {
 }
 
 export function AddUserDialog({ isOpen, onOpenChange, userToEdit, onUserAdded, onUserUpdated }: AddUserDialogProps) {
+  const { data: session } = useSession()
   const [isPending, startTransition] = useTransition();
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [isLoadingStatuses, setIsLoadingStatuses] = useState(true);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       email: "",
+      statusId: "",
+      priority: 'MEDIUM',
     },
   });
 
   useEffect(() => {
     if (userToEdit) {
-      form.reset(userToEdit);
+      form.reset({
+        name: userToEdit.name || "",
+        email: userToEdit.email || "",
+        statusId: userToEdit.status?.id || "",
+        priority: userToEdit.priority || 'MEDIUM',
+      });
     } else {
-      form.reset({ name: "", email: "" });
+      form.reset({
+        name: "",
+        email: "",
+        statusId: "",
+        priority: 'MEDIUM'
+      });
     }
   }, [userToEdit, form, isOpen]);
 
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      if (!session?.user?.id || !isOpen) {
+        setIsLoadingStatuses(false);
+        return;
+      }
+
+      try {
+        setIsLoadingStatuses(true);
+        const response = await fetch('/api/statuses');
+        if (response.ok) {
+          const data = await response.json();
+          setStatuses(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch statuses:', error);
+      } finally {
+        setIsLoadingStatuses(false);
+      }
+    };
+
+    fetchStatuses();
+  }, [session?.user?.id, isOpen]);
+
   const name = form.watch("name");
   const avatarUrl = name ? `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${name.charAt(0).toUpperCase()}` : null;
+  const priority = form.watch("priority");
+  const statusId = form.watch("statusId");
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(() => {
         const finalAvatarUrl = values.name ? `https://placehold.co/32x32/E9D5FF/6D28D9/png?text=${values.name.charAt(0).toUpperCase()}` : '';
-        const userData = { ...values, avatarUrl: finalAvatarUrl };
+        const userData = {
+          ...values,
+          avatarUrl: finalAvatarUrl,
+          statusId: values.statusId || null,
+        };
       if (userToEdit) {
-        onUserUpdated({ ...userToEdit, ...userData });
+        onUserUpdated({
+          ...userToEdit,
+          ...userData,
+          status: values.statusId ? { id: values.statusId, name: '', color: '' } : null
+        });
       } else {
         onUserAdded(userData);
       }
@@ -117,6 +176,55 @@ export function AddUserDialog({ isOpen, onOpenChange, userToEdit, onUserAdded, o
                 </FormItem>
               )}
             />
+  
+            <FormField
+              control={form.control}
+              name="statusId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {statuses.map((status) => (
+                        <SelectItem key={status.id} value={status.id}>
+                          {status.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+  
+            <FormField
+              control={form.control}
+              name="priority"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Priority</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="LOW">Low</SelectItem>
+                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="HIGH">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+  
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
               <Button type="submit" disabled={isPending}>

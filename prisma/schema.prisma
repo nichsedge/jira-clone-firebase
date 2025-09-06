@@ -11,17 +11,20 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String      @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?     @unique
   emailVerified DateTime?
   image         String?
   hashedPassword String?
-  projects      Project[] @relation("ProjectOwner")
-  memberProjects Project[] @relation("ProjectMembers")
-  tickets       Ticket[]  @relation("TicketAssignee")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  statusId      String?
+  status        Status?     @relation("UserStatus", fields: [statusId], references: [id], onDelete: SetNull)
+  priority      UserPriority @default(MEDIUM)
+  projects      Project[]   @relation("ProjectOwner")
+  memberProjects Project[]  @relation("ProjectMembers")
+  tickets       Ticket[]    @relation("TicketAssignee")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   @@map("users")
 }
@@ -41,15 +44,22 @@ model Project {
 }
 
 model Status {
-  id        String   @id
-  name      String   @unique
+  id        String      @id
+  name      String      @unique
   color     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 
   tickets   Ticket[]
+  users     User[]      @relation("UserStatus")
 
   @@map("statuses")
+}
+
+enum UserPriority {
+  LOW
+  MEDIUM
+  HIGH
 }
 
 enum TicketPriority {
